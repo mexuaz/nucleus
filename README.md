@@ -9,16 +9,34 @@ This is a collection of the codes on the nucleus decomposition framework.
 
 ## Instructions to Run on Nibi
 
-Run the following script
+Build the targets with:
 
 ```bash
 ./scripts/nibi/build_nucleus_all.sh
 ```
 
-The targets will be build inside the `bin` foloder as follow
-* bnd/binucleus
-* nd/nucleus
-* pnd/pnd
+The executables are written to `./bin/` inside this submodule:
+
+- `./bin/nd/nucleus`
+- `./bin/bnd/binucleus`
+- `./bin/pnd/pnd`
+- `./bin/dnd` if you have a separate directed-nucleus checkout and point `DND_DIR` at it
+
+Run jobs with:
+
+```bash
+sbatch ./scripts/nibi/run_nucleus_all.sbatch <target> [target arguments]
+```
+
+Examples:
+
+```bash
+sbatch ./scripts/nibi/run_nucleus_all.sbatch nd adjnoun.mtx 34 YES
+sbatch ./scripts/nibi/run_nucleus_all.sbatch bnd southern_woman.mtx WING YES
+sbatch ./scripts/nibi/run_nucleus_all.sbatch pnd <graph-file> 340
+```
+
+The wrapper forwards the remaining arguments to the selected binary, so use the same program-specific arguments you would pass at the command line.
 
 
 ## References
