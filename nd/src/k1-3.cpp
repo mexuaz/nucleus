@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 // per vertex
 lol countTriangles (Graph& graph, Graph& orientedGraph, vector<vertex>& TC) {
@@ -34,9 +36,9 @@ void base_k13 (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, vert
 	vector<vertex> TC (nVtx, 0);
 	lol tric = countTriangles (graph, orientedGraph, TC);
 
-	fprintf (fp, "# triangles: %lld\n", tric);
+	field(false, "triangle_count", tric);
 	timestamp t2;
-	print_time (fp, "Triangle counting: ", t2 - t1);
+	field(false, "triangle_time_sec", t2 - t1);
 
 	// Peeling
 	timestamp p1;
@@ -104,26 +106,33 @@ void base_k13 (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, vert
 
 	timestamp p2;
 
+	field(false, "K_avg", [&K](){ 
+		double sumK = 0.;
+		for (auto k : K)
+			sumK += k;
+		return K.size() ? (sumK / K.size()) : 0.;
+	}());
+
 	if (!hierarchy) {
-		print_time (fp, "Only peeling time: ", p2 - p1);
-		print_time (fp, "Total time: ", (p2 - p1) + (t2 - t1));
+		field(false, "peeling_time_sec", p2 - p1);
+		field(false, "total_time_sec", (p2 - p1) + (t2 - t1));
 	}
 	else {
-		print_time (fp, "Only peeling + on-the-fly hierarchy construction time: ", p2 - p1);
+		field(false, "peeling_hierarchy_time_sec", p2 - p1);
 		timestamp b1;
 		buildHierarchy (*max13, relations, skeleton, &nSubcores, nEdge, nVtx);
 		timestamp b2;
 
-		print_time (fp, "Building hierarchy time: ", b2 - b1);
-		print_time (fp, "Total 1,3 nucleus decomposition time (excluding density computation): ", (p2 - p1) + (t2 - t1) + (b2 - b1));
-
-		fprintf (fp, "# subcores: %d\t\t # subsubcores: %d\t\t |V|: %d\n", nSubcores, skeleton.size(), graph.size());
+		field(false, "build_hierarchy_time_sec", b2 - b1);
+		field(false, "total_time_sec_exclude_density", (p2 - p1) + (t2 - t1) + (b2 - b1));
+		field(false, "subcore_count", nSubcores);
+		field(false, "subsubcore_count", (int)skeleton.size());
 
 		timestamp d1;
 		helpers hp;
 		presentNuclei (13, skeleton, component, graph, nEdge, hp, vfile, fp);
 		timestamp d2;
 
-		print_time (fp, "Total 1,3 nucleus decomposition time: ", (p2 - p1) + (t2 - t1) + (b2 - b1) + (d2 - d1));
+		field(false, "total_time_sec", (p2 - p1) + (t2 - t1) + (b2 - b1) + (d2 - d1));
 	}
 }

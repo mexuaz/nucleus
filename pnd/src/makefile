@@ -9,11 +9,12 @@ SRCS	= $(CFILES:%=%.c) $(CXXFILES:%=%.cpp)
 all: $(TARGET) 
 
 pnd: main.o local12.o local23.o local34.o bucket.o graph.o
-	$(LD) $(LDFLAGS) -o ../$@ main.o local12.o local23.o local34.o bucket.o graph.o $(LIBS)
+	mkdir -p ../../bin/pnd
+	$(LD) $(LDFLAGS) -o ../../bin/pnd/$@ main.o local12.o local23.o local34.o bucket.o graph.o $(LIBS)
 	/bin/rm *.o  
 
 clean: 
-	/bin/rm -f *.o ../pnd *~ $(TARGET) 
+	/bin/rm -f *.o ../../bin/pnd/$(TARGET) *~ $(TARGET) 
 
 depend: $(SRCS)
 	makedepend -Y -- $(INCLUDES) -- $(SRCS) 

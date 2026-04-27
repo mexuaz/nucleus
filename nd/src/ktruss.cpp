@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 inline int checkConnectedness (Graph& graph, Graph& orientedGraph, Graph& TC, vertex u, vertex v, vector<vertex>* xel = NULL) {
 
@@ -79,14 +81,13 @@ void base_ktruss (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, v
 	fclose (aa);
 #endif
 
-	fprintf (fp, "# triangles: %lld\n", tric);
+	field(false, "triangle_count", tric);
 	timestamp t2;
-	print_time (fp, "Triangle counting: ", t2 - t1);
+	field(false, "triangle_time_sec", t2 - t1);
 
 	// Peeling
 	timestamp p1;
 	K.resize (nEdge, -1);
-	printf ("nEdge: %d\n", nEdge);
 	Naive_Bucket nBucket;
 	nBucket.Initialize (nVtx, nEdge); // maximum triangle count of an edge is nVtx
 	vertex id = 0;
@@ -160,26 +161,26 @@ void base_ktruss (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, v
 	timestamp p2;
 
 	if (!hierarchy) {
-		print_time (fp, "Only peeling time: ", p2 - p1);
-		print_time (fp, "Total time: ", (p2 - p1) + (t2 - t1));
+		field(false, "peeling_time_sec", p2 - p1);
+		field(false, "total_time_sec", (p2 - p1) + (t2 - t1));
 	}
 	else {
-		print_time (fp, "Only peeling + on-the-fly hierarchy construction time: ", p2 - p1);
+		field(false, "peeling_hierarchy_time_sec", p2 - p1);
 		timestamp b1;
 		buildHierarchy (*maxtruss, relations, skeleton, &nSubcores, nEdge, nVtx);
 		timestamp b2;
 
-		print_time (fp, "Building hierarchy time: ", b2 - b1);
-		print_time (fp, "Total 2,3 nucleus decomposition time (excluding density computation): ", (p2 - p1) + (t2 - t1) + (b2 - b1));
-
-		fprintf (fp, "# subcores: %d\t\t # subsubcores: %d\t\t |V|: %d\n", nSubcores, skeleton.size(), graph.size());
+		field(false, "build_hierarchy_time_sec", b2 - b1);
+		field(false, "total_time_sec_exclude_density", (p2 - p1) + (t2 - t1) + (b2 - b1));
+		field(false, "subcore_count", nSubcores);
+		field(false, "subsubcore_count", (int)skeleton.size());
 
 		timestamp d1;
 		helpers hp (&el);
 		presentNuclei (23, skeleton, component, graph, nEdge, hp, vfile, fp);
 		timestamp d2;
 
-		print_time (fp, "Total 2,3 nucleus decomposition time: ", (p2 - p1) + (t2 - t1) + (b2 - b1) + (d2 - d1));
+		field(false, "total_time_sec", (p2 - p1) + (t2 - t1) + (b2 - b1) + (d2 - d1));
 	}
 }
 
@@ -233,9 +234,9 @@ void base_ktruss_storeTriangles (Graph& graph, bool hierarchy, edge nEdge, vecto
 	vector<vector<vertex>> tris (el.size());
 	lol tric = storeCountTriangles (graph, orientedGraph, TC, xel, tris);
 
-	fprintf (fp, "# triangles: %lld\n", tric);
+	field(false, "triangle_count", tric);
 	timestamp t2;
-	print_time (fp, "Triangle storing and counting: ", t2 - t1);
+	field(false, "triangle_store_time_sec", t2 - t1);
 
 
 	// Peeling
@@ -308,28 +309,36 @@ void base_ktruss_storeTriangles (Graph& graph, bool hierarchy, edge nEdge, vecto
 	*maxtruss = tc_e; // tc_e is tc of the last popped edge
 
 	timestamp p2;
+	
+	field(false, "K_avg", [&K](){ 
+		double sumK = 0.;
+		for (auto k : K)
+			sumK += k;
+		return K.size() ? (sumK / K.size()) : 0.;
+	}());
+
 
 	if (!hierarchy) {
-		print_time (fp, "Only peeling time: ", p2 - p1);
-		print_time (fp, "Total time: ", (p2 - p1) + (t2 - t1));
+		field(false, "peeling_time_sec", p2 - p1);
+		field(false, "total_time_sec", (p2 - p1) + (t2 - t1));
 	}
 	else {
-		print_time (fp, "Only peeling + on-the-fly hierarchy construction time: ", p2 - p1);
+		field(false, "peeling_hierarchy_time_sec", p2 - p1);
 		timestamp b1;
 		buildHierarchy (*maxtruss, relations, skeleton, &nSubcores, nEdge, nVtx);
 		timestamp b2;
 
-		print_time (fp, "Building hierarchy time: ", b2 - b1);
-		print_time (fp, "Total 2,3 nucleus decomposition (with stored triangles) time (excluding density computation): ", (p2 - p1) + (t2 - t1) + (b2 - b1));
-
-		fprintf (fp, "# subcores: %d\t\t # subsubcores: %d\t\t |V|: %d\n", nSubcores, skeleton.size(), graph.size());
+		field(false, "build_hierarchy_time_sec", b2 - b1);
+		field(false, "total_time_sec_exclude_density", (p2 - p1) + (t2 - t1) + (b2 - b1));
+		field(false, "subcore_count", nSubcores);
+		field(false, "subsubcore_count", (int)skeleton.size());
 
 		timestamp d1;
 		helpers hp (&el);
 		presentNuclei (23, skeleton, component, graph, nEdge, hp, vfile, fp);
 		timestamp d2;
 
-		print_time (fp, "Total 2,3 nucleus decomposition (with stored triangles) time: ", (p2 - p1) + (t2 - t1) + (b2 - b1) + (d2 - d1));
+		field(false, "total_time_sec", (p2 - p1) + (t2 - t1) + (b2 - b1) + (d2 - d1));
 	}
 }
 

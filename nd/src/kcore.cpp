@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 void base_kcore (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, vertex* maxCore, string vfile, FILE* fp) {
 
@@ -62,27 +64,36 @@ void base_kcore (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, ve
 
 	nBucket.Free();
 	*maxCore = deg_u; // deg_u is degree of the last popped vertex
-
+	
 	timestamp p2;
+
+	field(false, "K_avg", [&K](){ 
+		double sumK = 0.;
+		for (auto k : K)
+			sumK += k;
+		return K.size() ? (sumK / K.size()) : 0.;
+	}());
+
 	if (!hierarchy) {
-		print_time (fp, "Peeling time: ", p2 - p1);
+		field(false, "peeling_time_sec", p2 - p1);
+		field(false, "total_time_sec", p2 - p1);
 	}
 	else  {
-		print_time (fp, "Peeling + on-the-fly hiearchy construction time: ", p2 - p1);
+		field(false, "peeling_hierarchy_time_sec", p2 - p1);
 		timestamp b1;
 		buildHierarchy (*maxCore, relations, skeleton, &nSubcores, nEdge, nVtx);
 		timestamp b2;
 
-		print_time (fp, "Building hierarchy time: ", b2 - b1);
-		print_time (fp, "Total 1,2 nucleus decomposition time (excluding density computation): ", (p2 - p1) + (b2 - b1));
-
-		fprintf (fp, "# subcores: %d\t\t # subsubcores: %d\t\t |V|: %d\n", nSubcores, skeleton.size(), graph.size());
+		field(false, "build_hierarchy_time_sec", b2 - b1);
+		field(false, "total_time_sec_exclude_density", (p2 - p1) + (b2 - b1));
+		field(false, "subcore_count", nSubcores);
+		field(false, "subsubcore_count", (int)skeleton.size());
 
 		timestamp d1;
 		helpers hp;
 		presentNuclei (12, skeleton, component, graph, nEdge, hp, vfile, fp);
 		timestamp d2;
 
-		print_time (fp, "Total 1,2 nucleus decomposition time: ", (p2 - p1) + (b2 - b1) + (d2 - d1));
+		field(false, "total_time_sec", (p2 - p1) + (b2 - b1) + (d2 - d1));
 	}
 }
