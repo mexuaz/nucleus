@@ -217,7 +217,10 @@ void presentNuclei (int variant, vector<subcore>& skeleton, vector<vertex>& comp
 	bfsHierarchy (skeleton, subcoreStack);
 
 	string nFile = vfile + "_NUCLEI";
-	FILE* fp = fopen (nFile.c_str(), "w+");
+	FILE* fp = nullptr;
+	if (gp){
+		fp = fopen (nFile.c_str(), "w+");
+	}
 	vector<subcore> backup (skeleton);
 
 	HashMap<vertex> orderInFile (-1); // key is the skeleton index, value is the order
@@ -228,9 +231,12 @@ void presentNuclei (int variant, vector<subcore>& skeleton, vector<vertex>& comp
 		subcoreStack.pop();
 		if (backup[i].visible) {
 			orderInFile[i] = o++;
-			reportSubgraph (variant, i, orderInFile, component, ax, skeleton, graph, nEdge, fp, gp);
+			if (fp && gp) {
+				reportSubgraph (variant, i, orderInFile, component, ax, skeleton, graph, nEdge, fp, gp);
+			}
 			removeChild (i, backup);
 		}
 	}
-	fclose (fp);
+	if (fp)
+		fclose (fp);
 }
