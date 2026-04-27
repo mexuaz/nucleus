@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 inline int sortInitialHI (vertex ind, vertex* adj, edge* xadj, vertex* P
 #ifdef SYNC
@@ -196,14 +198,14 @@ void baseLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* v
 		P[i] = xadj[i+1] - xadj[i];
 
 #ifdef SYNC
-	printf ("It is SYNC\n");
+	field(false, "mode", "SYNC");
 	vertex* Q = (vertex *) malloc (sizeof(vertex) * nVtx);
 #else
-	printf ("It is ASYNC\n");
+	field(false, "mode", "ASYNC");
 #endif
 
 	timestamp t_deg;
-	cout << "Degree finding time: " << t_deg - t_begin << endl;
+	field(false, "degree_time_sec", t_deg - t_begin);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -245,7 +247,7 @@ void baseLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* v
 #endif
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_deg - td << endl;
+	field(false, "H_0_time_sec", t_init - t_deg - td);
 #ifdef DUMP_Hs
 	print_Ks (nVtx, P, vfile, oc);
 #endif
@@ -286,13 +288,13 @@ void baseLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* v
 		timestamp td3;
 		td += td3 - td2;
 
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
 
 #ifdef DUMP_K
 	print_Ks (nVtx, P, vfile);
@@ -310,7 +312,7 @@ void baseLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* v
 // AND algorithm with the notification mechanism
 void nmLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* vfile) {
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -321,7 +323,7 @@ void nmLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* vfi
 		P[i] = xadj[i+1] - xadj[i];
 
 	timestamp t_deg;
-	cout << "degreeFinding time: " << t_deg - t_begin << endl;
+	field(false, "degree_time_sec", t_deg - t_begin);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -354,7 +356,7 @@ void nmLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* vfi
 	}
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_deg - td << endl;
+	field(false, "H_0_time_sec", t_init - t_deg - td);
 #ifdef DUMP_Hs
 	print_Ks (nVtx, P, vfile, oc);
 #endif
@@ -404,13 +406,13 @@ void nmLocal12 (vertex nVtx, vertex* adj, edge* xadj, vertex* P, const char* vfi
 		timestamp td3;
 		td += td3 - td2;
 
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
 
 #ifdef DUMP_K
 	print_Ks (nVtx, P, vfile);
@@ -464,9 +466,9 @@ void kcore (vertex nVtx, vertex* adj, edge* xadj, vertex* K, const char* vfile) 
 	}
 
 	na_bs.Free();
-	cout << "Max core number: " << degree_of_u << endl;
+	field(false, "K_max", degree_of_u);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
 
 #ifdef DUMP_K
 	print_Ks (nVtx, K, vfile);
@@ -487,7 +489,7 @@ void fast12DegeneracyNumber (vertex nVtx, vertex* adj, edge* xadj, vertex* P, ve
 
 	int number = topK; // only top-number vertices in degree are executed
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -498,7 +500,7 @@ void fast12DegeneracyNumber (vertex nVtx, vertex* adj, edge* xadj, vertex* P, ve
 		P[i] = xadj[i+1] - xadj[i];
 
 	timestamp t_tc;
-	cout << "Degree finding time: " << t_tc - t_begin << endl;
+	field(false, "degree_time_sec", t_tc - t_begin);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -539,13 +541,13 @@ void fast12DegeneracyNumber (vertex nVtx, vertex* adj, edge* xadj, vertex* P, ve
 		}
 
 		timestamp it3;
-		cout << "H " << oc << " time: " << it3 - it1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", it3 - it1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
 
 
 	int maxK = 0;
@@ -556,7 +558,7 @@ void fast12DegeneracyNumber (vertex nVtx, vertex* adj, edge* xadj, vertex* P, ve
 //		printf ("%d goes from %d to %d\n", get<0>(KK[i]), get<1>(KK[i]), curP);
 	}
 
-	printf ("max K: %d\n", maxK);
+	field(false, "K_max", maxK);
 #endif
 }
 
@@ -616,7 +618,8 @@ void kcore_levels (vertex nVtx, vertex* adj, edge* xadj, vertex* L, const char* 
 					na_bs.DecVal(w);
 			}
 		}
-		printf ("Level %d K: %d size: %d\n", level, min_val, mins.size());
+		// field(false, "K_" + to_string(level), min_val);
+		// field(false, "Size_" + to_string(level), mins.size());
 		level++;
 	}
 	na_bs.Free();
@@ -659,7 +662,8 @@ void kcore_Sesh_levels (vertex nVtx, vertex* adj, edge* xadj, vertex* K, vertex*
 			L[v] = level;
 		}
 
-		printf ("Level %d  size: %d\n", level, atMostK.size());
+		// field(false, "Level", level);
+		// field(false, "Size", atMostK.size());
 		level++;
 	}
 #ifdef DUMP_K

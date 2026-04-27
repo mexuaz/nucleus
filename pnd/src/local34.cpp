@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 inline int getTriangleId (vertex u, vertex v, vertex w, edge* xtl, triangle_id* tlist, vertex* ordered_adj, edge* ordered_xadj) {
 	edge ind = findInd (u, v, ordered_adj, ordered_xadj);
@@ -291,7 +293,7 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -299,17 +301,17 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
+	field(false, "triangle_count", tlist.size());
 
 	// 4-clique counting
 	P = (vertex *) malloc (sizeof(vertex) * tlist.size());
 
 #ifdef SYNC
-	printf ("It is SYNC\n");
+	field(false, "mode", "SYNC");
 	vertex* Q = (vertex *) malloc (sizeof(vertex) * tlist.size());
 #else
-	printf ("It is ASYNC\n");
+	field(false, "mode", "ASYNC");
 #endif
 
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
@@ -334,9 +336,9 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 	timestamp t_fc;
 #ifndef FAST
 	fccount /= 4;
-	cout << "# 4-cliques: " << fccount << endl;
+	field(false, "four_clique_count", fccount);
 #endif
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
+	field(false, "four_clique_time_sec", t_fc - t_tri);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -357,7 +359,7 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 #endif
 
 	timestamp ts5;
-	cout << "H 0 time: " << ts5 - t_fc << endl;
+	field(false, "H_0_time_sec", ts5 - t_fc);
 
 #ifdef DUMP_Hs
 	print_Ks (sz, P, vfile, oc);
@@ -388,13 +390,20 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 #endif
 
 		timestamp t_end;
-		cout << "H " << oc << " time: " << t_end - t_begin - td << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", t_end - t_begin - td);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
+	
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -416,7 +425,7 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 // stores the triangle-4clique graph; AND algorithm with the notification mechanism
 void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, const char* vfile) {
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -430,7 +439,7 @@ void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, 
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -438,12 +447,12 @@ void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, 
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
 
 	// 4-clique counting
 	P = (vertex *) malloc (sizeof(vertex) * tlist.size());
 
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_count", tlist.size());
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
 	for (edge i = 0; i < tlist.size(); i++) {
 		Ntlist[i].id = tlist[i].id;
@@ -467,9 +476,9 @@ void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, 
 	timestamp t_fc;
 #ifndef FAST
 	fccount /= 4;
-	cout << "# 4-cliques: " << fccount << endl;
+	field(false, "four_clique_count", fccount);
 #endif
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
+	field(false, "four_clique_time_sec", t_fc - t_tri);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -486,7 +495,7 @@ void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, 
 	memset (changed, 255, sizeof(bool) * sz); // set all true
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_fc - td << endl;
+	field(false, "H_0_time_sec", t_init - t_fc - td);
 #ifdef DUMP_Hs
 	print_Ks (sz, P, vfile, oc);
 #endif
@@ -512,12 +521,19 @@ void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, 
 		timestamp td3;
 		td += td3 - td2;
 
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
+	
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -551,7 +567,7 @@ void k34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const 
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -561,8 +577,8 @@ void k34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const 
 
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
+	field(false, "triangle_count", tlist.size());
 
 	// 4-clique counting
 	vertex* fc = (vertex *) malloc (sizeof(vertex) * tlist.size());
@@ -588,9 +604,9 @@ void k34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const 
 	}
 
 	timestamp t_fc;
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
+	field(false, "four_clique_time_sec", t_fc - t_tri);
 #ifndef FAST
-	cout << "# 4-cliques: " << fccount << endl;
+	field(false, "four_clique_count", fccount);
 #endif
 
 	// Peeling
@@ -637,12 +653,20 @@ void k34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const 
 	}
 
 	na_bs.Free();
-	cout << "Max 34 number: " << fc_of_uvw << endl;
+	field(false, "K_max", fc_of_uvw);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
+
+	auto sz = tlist.size();
+	field(false, "K_avg", [sz, &F](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += F[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
-	print_Ks (tlist.size(), F, vfile);
+	print_Ks (sz, F, vfile);
 #endif
 	return;
 }
@@ -982,7 +1006,7 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -990,17 +1014,17 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
+	field(false, "triangle_count", tlist.size());
 
 	// 4-clique counting
 	P = (vertex *) malloc (sizeof(vertex) * tlist.size());
 
 #ifdef SYNC
-	printf ("It is SYNC\n");
+	field(false, "mode", "SYNC");
 	vertex* Q = (vertex *) malloc (sizeof(vertex) * tlist.size());
 #else
-	printf ("It is ASYNC\n");
+	field(false, "mode", "ASYNC");
 #endif
 
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
@@ -1011,14 +1035,14 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 
 	lol fccount = intersection3for4cliques (nEdge, xadj, ordered_adj, ordered_xadj, el, xtl, Ntlist);
 #ifndef FAST
-	cout << "# 4-cliques: " << fccount << endl;
+	field(false, "four_clique_count", fccount);
 #endif
 #pragma omp parallel for
 	for (edge i = 0; i < tlist.size(); i++)
 		P[i] = Ntlist[i].id;
 
 	timestamp t_fc;
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
+	field(false, "four_clique_time_sec", t_fc - t_tri);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -1060,7 +1084,7 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 #endif
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_fc - td << endl;
+	field(false, "H_0_time_sec", t_init - t_fc - td);
 #ifdef DUMP_Hs
 	print_Ks (sz, P, vfile, oc);
 #endif
@@ -1083,22 +1107,29 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 		timestamp td2;
 
 #ifdef SYNC
-	memcpy (P, Q, sizeof(vertex) * sz);
+			memcpy (P, Q, sizeof(vertex) * sz);
 #endif
 
 #ifdef DUMP_Hs
-	print_Ks (sz, P, vfile, oc);
+		print_Ks (sz, P, vfile, oc);
 #endif
 
 		timestamp td3;
 		td += td3 - td2;
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
+	
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -1120,7 +1151,7 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 // AND algorithm with the notification mechanism
 void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, const char* vfile) {
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -1134,7 +1165,7 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -1142,12 +1173,12 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
 
 	// 4-clique counting
 	P = (vertex *) malloc (sizeof(vertex) * tlist.size());
 
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_count", tlist.size());
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
 	for (edge i = 0; i < tlist.size(); i++) {
 		Ntlist[i].id = tlist[i].id;
@@ -1160,10 +1191,8 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 		P[i] = Ntlist[i].id;
 
 	timestamp t_fc;
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
-#ifndef FAST
-	cout << "# 4-cliques: " << fccount << endl;
-#endif
+	field(false, "four_clique_time_sec", t_fc - t_tri);
+	field(false, "four_clique_count", fccount);
 
 	int oc = 0;
 	bool flag = true;
@@ -1196,7 +1225,7 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 	memset (changed, 255, sizeof(bool) * sz); // set all true
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_fc - td << endl;
+	field(false, "H_0_time_sec", t_init - t_fc - td);
 #ifdef DUMP_Hs
 	print_Ks (sz, P, vfile, oc);
 #endif
@@ -1223,7 +1252,7 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 		for(int i = 0; i < nt; i++)
 			degisenler += ccs[i];
 		memset (ccs, 0, nt * sizeof(int));
-		cout << "CHANGEDS: " << degisenler << endl;
+		field(false, "changed_count", degisenler);
 #endif
 
 
@@ -1233,12 +1262,19 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 
 		timestamp td3;
 		td += td3 - td2;
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		// field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
+
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -1271,7 +1307,7 @@ void k34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const cha
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -1279,13 +1315,13 @@ void k34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const cha
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
 
 	// 4-clique counting
 	F = (vertex *) malloc (sizeof(vertex) * tlist.size());
 	memset (F, -1, sizeof(vertex) * tlist.size());
 
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_count", tlist.size());
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
 	for (edge i = 0; i < tlist.size(); i++) {
 		Ntlist[i].id = tlist[i].id;
@@ -1295,9 +1331,9 @@ void k34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const cha
 	lol fccount = intersection3for4cliques (nEdge, xadj, ordered_adj, ordered_xadj, el, xtl, Ntlist);
 
 	timestamp t_fc;
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
+	field(false, "four_clique_time_sec", t_fc - t_tri);
 #ifndef FAST
-	cout << "# 4-cliques: " << fccount << endl;
+	field(false, "four_clique_count", fccount);
 #endif
 
 	// Peeling
@@ -1352,9 +1388,17 @@ void k34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const cha
 	for (size_t i = 0; i < tlist.size(); i++)
 		if (F[i] == -1)
 			F[i] = 0;
-	cout << "Max 34 number: " << fc_of_uvw << endl;
+	field(false, "K_max", fc_of_uvw);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
+
+	auto sz = tlist.size();
+	field(false, "K_avg", [sz, &F](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += F[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (tlist.size(), F, vfile);
@@ -1371,7 +1415,7 @@ void fast34DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 
 	int number = topK; // only top-number vertices in degree are executed
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -1385,7 +1429,7 @@ void fast34DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -1393,12 +1437,12 @@ void fast34DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
 
 	// 4-clique counting
 	P = (vertex *) malloc (sizeof(vertex) * tlist.size());
 
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_count", tlist.size());
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
 	for (edge i = 0; i < tlist.size(); i++) {
 		Ntlist[i].id = tlist[i].id;
@@ -1411,10 +1455,8 @@ void fast34DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 		P[i] = Ntlist[i].id;
 
 	timestamp t_fc;
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
-#ifndef FAST
-	cout << "# 4-cliques: " << fccount << endl;
-#endif
+	field(false, "four_clique_time_sec", t_fc - t_tri);
+	field(false, "four_clique_count", fccount);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -1453,13 +1495,13 @@ void fast34DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 		}
 
 		timestamp it3;
-		cout << "H " << oc << " time: " << it3 - it1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", it3 - it1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
 
 
 	vertex maxK = 0;
@@ -1467,10 +1509,10 @@ void fast34DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 		int curP = P[get<0>(KK[i])];
 		if (curP > maxK)
 			maxK = curP;
-//		printf ("%d goes from %d to %d\n", get<0>(KK[i]), get<1>(KK[i]), curP);
+		// field(false, to_string(get<0>(KK[i])) + "_" + to_string(get<1>(KK[i])) + "_to_", curP);
 	}
 
-	printf ("max K: %d\n", maxK);
+	field(false, "K_max", maxK);
 #endif
 }
 
@@ -1491,7 +1533,7 @@ void k34_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L, co
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Enumerating triangles
 	edge* xtl = (edge *) malloc (sizeof(edge) * (nEdge + 1));
@@ -1499,8 +1541,8 @@ void k34_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L, co
 	enumTriangles (nEdge, ordered_adj, ordered_xadj, el, tlist, xtl);
 
 	timestamp t_tri;
-	cout << "Enumerating triangles: " << t_tri - t_cog << endl;
-	cout << "# triangles: " << tlist.size() << endl;
+	field(false, "triangle_time_sec", t_tri - t_cog);
+	field(false, "triangle_count", tlist.size());
 	triangle_id* Ntlist = (triangle_id *) malloc (sizeof (triangle_id) * tlist.size());
 	for (edge i = 0; i < tlist.size(); i++) {
 		Ntlist[i].id = tlist[i].id;
@@ -1511,9 +1553,9 @@ void k34_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L, co
 	lol fccount = intersection3for4cliques (nEdge, xadj, ordered_adj, ordered_xadj, el, xtl, Ntlist);
 
 	timestamp t_fc;
-	cout << "4-clique counting: " << t_fc - t_tri << endl;
+	field(false, "four_clique_time_sec", t_fc - t_tri);
 #ifndef FAST
-	cout << "# 4-cliques: " << fccount << endl;
+	field(false, "four_clique_count", fccount);
 #endif
 
 
@@ -1582,10 +1624,23 @@ void k34_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L, co
 			}
 		}
 
-		printf ("Level %d K: %d size: %d\n", level, min_val, mins.size());
+		// field(false, "K_" + to_string(level), min_val);
+		// field(false, "Size_" + to_string(level), mins.size());
 		level++;
 	}
 	na_bs.Free();
+
+	timestamp t_end;
+	field(false, "total_time_sec", t_end - t_begin);
+	
+	auto sz = tlist.size();
+	field(false, "K_avg", [sz, &L](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += L[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
+	
 #ifdef DUMP_K
 	print_Ks (nEdge, L, vfile);
 #endif

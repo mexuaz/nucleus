@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 // per vertex
 lol count4cliques (Graph& graph, Graph& orientedGraph, vector<vertex>& FC) {
@@ -45,9 +47,9 @@ void base_k14 (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, vert
 		if (FC[i] > maxFC)
 			maxFC = FC[i];
 
-	fprintf (fp, "# 4-cliques: %lld\n", fc);
+	field(false, "four_clique_count", fc);
 	timestamp f2;
-	print_time (fp, "4-clique counting: ", f2 - f1);
+	field(false, "four_clique_time_sec", f2 - f1);
 
 	// Peeling
 	timestamp p1;
@@ -123,26 +125,33 @@ void base_k14 (Graph& graph, bool hierarchy, edge nEdge, vector<vertex>& K, vert
 
 	timestamp p2;
 
+	field(false, "K_avg", [&K](){ 
+		double sumK = 0.;
+		for (auto k : K)
+			sumK += k;
+		return K.size() ? (sumK / K.size()) : 0.;
+	}());
+
 	if (!hierarchy) {
-		print_time (fp, "Only peeling time: ", p2 - p1);
-		print_time (fp, "Total time: ", (p2 - p1) + (f2 - f1));
+		field(false, "peeling_time_sec", p2 - p1);
+		field(false, "total_time_sec", (p2 - p1) + (f2 - f1));
 	}
 	else {
-		print_time (fp, "Only peeling + on-the-fly hierarchy construction time: ", p2 - p1);
+		field(false, "peeling_hierarchy_time_sec", p2 - p1);
 		timestamp b1;
 		buildHierarchy (*max14, relations, skeleton, &nSubcores, nEdge, nVtx);
 		timestamp b2;
 
-		print_time (fp, "Building hierarchy time: ", b2 - b1);
-		print_time (fp, "Total 1,4 nucleus decomposition time (excluding density computation): ", (p2 - p1) + (f2 - f1) + (b2 - b1));
-
-		fprintf (fp, "# subcores: %d\t\t # subsubcores: %d\t\t |V|: %d\n", nSubcores, skeleton.size(), graph.size());
+		field(false, "build_hierarchy_time_sec", b2 - b1);
+		field(false, "total_time_sec_exclude_density", (p2 - p1) + (f2 - f1) + (b2 - b1));
+		field(false, "subcore_count", nSubcores);
+		field(false, "subsubcore_count", (int)skeleton.size());
 
 		timestamp d1;
 		helpers hp;
 		presentNuclei (14, skeleton, component, graph, nEdge, hp, vfile, fp);
 		timestamp d2;
 
-		print_time (fp, "Total 1,4 nucleus decomposition time: ", (p2 - p1) + (f2 - f1) + (b2 - b1) + (d2 - d1));
+		field(false, "total_time_sec", (p2 - p1) + (f2 - f1) + (b2 - b1) + (d2 - d1));
 	}
 }
