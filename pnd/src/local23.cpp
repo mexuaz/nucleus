@@ -1,4 +1,6 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
 
 /* STORES EDGE-TRIANGLE GRAPHS */
 
@@ -249,16 +251,16 @@ void baseLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting and storing for each edge
 	T = (vertex *) calloc (nEdge, sizeof(vertex));
 
 #ifdef SYNC
-	printf ("It is SYNC\n");
+	field(false, "mode", "SYNC");
 	vertex* U = (vertex *) calloc (nEdge, sizeof(vertex));
 #else
-	printf ("It is ASYNC\n");
+	field(false, "mode", "ASYNC");
 #endif
 
 	vector<vertex> tris[nEdge];
@@ -267,10 +269,11 @@ void baseLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T
 	free (ordered_adj);
 	free (ordered_xadj);
 	timestamp t_tc;
-	cout << "Triangle counting & edge-triangle graph construction time: " << t_tc - t_begin << endl;
+	field(false, "triangle_time_sec", t_tc - t_begin);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
+	
 	timestamp td (0, 0);
 	int oc = 0;
 	bool flag = true;
@@ -290,7 +293,7 @@ void baseLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T
 #endif
 
 	timestamp ts5;
-	cout << "H 0 time: " << ts5 - t_tc << endl;
+	field(false, "H_0_time_sec", ts5 - t_tc);
 
 #ifdef DUMP_Hs
 	print_Ks (nEdge, P, vfile, oc);
@@ -322,13 +325,13 @@ void baseLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T
 #endif
 
 		timestamp t_end;
-		cout << "H " << oc << " time: " << t_end - t_begin - td << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", t_end - t_begin - td);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
 
 #ifdef DUMP_K
 	print_Ks (nEdge, T, vfile);
@@ -346,7 +349,7 @@ void baseLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T
 // stores the edge-triangle graph; AND algorithm with the notification mechanism
 void nmLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, const char* vfile) {
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -360,7 +363,7 @@ void nmLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, 
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting and storing for each edge
 	T = (vertex *) calloc (nEdge, sizeof(vertex));
@@ -371,9 +374,9 @@ void nmLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, 
 	free (ordered_adj);
 	free (ordered_xadj);
 	timestamp t_tc;
-	cout << "Triangle counting & edge-triangle graph construction time: " << t_tc - t_begin << endl;
+	field(false, "triangle_time_sec", t_tc - t_begin);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
 
 	timestamp td (0, 0);
@@ -388,7 +391,7 @@ void nmLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, 
 	memset (changed, 255, sizeof(bool) * nEdge); // set all true
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_tc - td << endl;
+	field(false, "H_0_time_sec", t_init - t_tc - td);
 #ifdef DUMP_Hs
 	print_Ks (nEdge, T, vfile, oc);
 #endif
@@ -416,13 +419,13 @@ void nmLocal23_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, 
 		timestamp td3;
 		td += td3 - td2;
 
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
 
 #ifdef DUMP_K
 	print_Ks (nEdge, T, vfile);
@@ -449,7 +452,7 @@ void ktruss_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting and storing for each edge
 	edge* tc = (edge *) calloc (nEdge, sizeof(vertex));
@@ -458,9 +461,9 @@ void ktruss_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 	lol tricount = storeCountTriangles (tc, tris, nVtx, nEdge, adj, xadj, el, ordered_adj, ordered_xadj);
 
 	timestamp t_tc;
-	cout << "Triangle counting & edge-triangle graph construction time: " << t_tc - t_begin << endl;
+	field(false, "triangle_time_sec", t_tc - t_begin);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
 
 	T = (vertex *) malloc (nEdge * sizeof(vertex));
@@ -502,9 +505,9 @@ void ktruss_ST (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 	}
 
 	na_bs.Free();
-	cout << "Max truss number: " << tc_of_uv << endl;
+	field(false, "K_max", tc_of_uv);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
 
 #ifdef DUMP_K
 	print_Ks (nEdge, T, vfile);
@@ -786,16 +789,16 @@ void baseLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, c
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting for each edge
 	T = (vertex *) calloc (nEdge, sizeof(vertex));
 
 #ifdef SYNC
-	printf ("It is SYNC\n");
+	field(false, "mode", "SYNC");
 	vertex* U = (vertex *) calloc (nEdge, sizeof(vertex));
 #else
-	printf ("It is ASYNC\n");
+	field(false, "mode", "ASYNC");
 #endif
 
 	lol tricount = count_triangles (T, nVtx, xadj, ordered_adj, ordered_xadj); // single loop with three locks
@@ -803,9 +806,9 @@ void baseLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, c
 	free (ordered_adj);
 	free (ordered_xadj);
 	timestamp t_tc;
-	cout << "Triangle counting time: " << t_tc - t_cog << endl;
+	field(false, "triangle_time_sec", t_tc - t_cog);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
 	timestamp td (0, 0);
 	int oc = 0;
@@ -846,7 +849,7 @@ void baseLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, c
 #endif
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_tc - td << endl;
+	field(false, "H_0_time_sec", t_init - t_tc - td);
 #ifdef DUMP_Hs
 	print_Ks (nEdge, T, vfile, oc);
 #endif
@@ -880,13 +883,13 @@ void baseLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, c
 		timestamp td3;
 		td += td3 - td2;
 
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		//field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
 
 #ifdef DUMP_K
 	print_Ks (nEdge, T, vfile);
@@ -905,7 +908,7 @@ void baseLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, c
 // AND algorithm with the notification mechanism
 void nmLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, const char* vfile) {
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -919,7 +922,7 @@ void nmLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting for each edge
 	T = (vertex *) calloc (nEdge, sizeof(vertex));
@@ -929,9 +932,9 @@ void nmLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 	free (ordered_adj);
 	free (ordered_xadj);
 	timestamp t_tc;
-	cout << "Triangle counting time: " << t_tc - t_begin << endl;
+	field(false, "triangle_time_sec", t_tc - t_cog);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
 
 	timestamp td (0, 0);
@@ -964,7 +967,7 @@ void nmLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 	memset (changed, 255, sizeof(bool) * nEdge); // set all true
 
 	timestamp t_init;
-	cout << "H 0 time: " << t_init - t_tc - td << endl;
+	field(false, "H_0_time_sec", t_init - t_tc - td);
 #ifdef DUMP_Hs
 	print_Ks (nEdge, T, vfile, oc);
 #endif
@@ -1005,13 +1008,13 @@ void nmLocal23 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, con
 		timestamp td3;
 		td += td3 - td2;
 
-		cout << "H " << oc << " time: " << td2 - td1 << endl;
+		 //field(false, "H_" + to_string(oc) + "_time_sec", td2 - td1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin - td << endl;
+	field(false, "total_time_sec", t_end - t_begin - td);
 
 #ifdef DUMP_K
 	print_Ks (nEdge, T, vfile);
@@ -1038,7 +1041,7 @@ void ktruss (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, const 
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting for each edge
 	edge* tc = (edge *) calloc (nEdge, sizeof(vertex));
@@ -1046,10 +1049,11 @@ void ktruss (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, const 
 	lol tricount = count_triangles (tc, nVtx, xadj, ordered_adj, ordered_xadj); // single loop with three locks
 
 	timestamp t_tc;
-	cout << "Triangle counting time: " << t_tc - t_cog << endl;
+	field(false, "triangle_time_sec", t_tc - t_cog);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
+	
 	T = (vertex *) malloc (nEdge * sizeof(vertex));
 	memset (T, -1, sizeof(vertex) * nEdge);
 
@@ -1097,9 +1101,9 @@ void ktruss (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* T, const 
 	for (size_t i = 0; i < nEdge; i++)
 		if (T[i] == -1)
 			T[i] = 0;
-	cout << "Max truss number: " << tc_of_uv << endl;
+	field(false, "K_max", tc_of_uv);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
 
 #ifdef DUMP_K
 	print_Ks (nEdge, T, vfile);
@@ -1120,7 +1124,7 @@ void fast23DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 
 	int number = topK; // only top-number vertices in degree are executed
 #ifdef SYNC
-	printf ("No SYNC for notification-mechanism\n");
+	std::cerr << "No SYNC for notification-mechanism" << std::endl;
 	exit(1);
 #else
 	timestamp t_begin;
@@ -1134,7 +1138,7 @@ void fast23DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting for each edge
 	P = (edge *) calloc (nEdge, sizeof(vertex));
@@ -1144,7 +1148,7 @@ void fast23DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 	free (ordered_adj);
 	free (ordered_xadj);
 	timestamp t_tc;
-	cout << "Triangle counting time: " << t_tc - t_cog << endl;
+	field(false, "triangle_time_sec", t_tc - t_cog);
 
 	timestamp td (0, 0);
 	int oc = 0;
@@ -1183,13 +1187,13 @@ void fast23DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 		}
 
 		timestamp it3;
-		cout << "H " << oc << " time: " << it3 - it1 << endl;
+		field(false, "H_" + to_string(oc) + "_time_sec", it3 - it1);
 		oc++;
 	}
 
-	printf ("Converges at %d\n", oc);
+	field(false, "H_convergence_at", oc);
 	timestamp t_end;
-	cout << "Total time: " << t_end - t_begin << endl;
+	field(false, "total_time_sec", t_end - t_begin);
 
 
 	vertex maxT = 0;
@@ -1200,7 +1204,7 @@ void fast23DegeneracyNumber (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, v
 //		printf ("%d goes from %d to %d\n", get<0>(KK[i]), get<1>(KK[i]), curP);
 	}
 
-	printf ("max T: %d\n", maxT);
+	field(false, "K_max", maxT);
 #endif
 }
 
@@ -1221,16 +1225,16 @@ void ktruss_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L,
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting for each edge
 	edge* tc = (edge *) calloc (nEdge, sizeof(vertex));
 
 	lol tricount = count_triangles (tc, nVtx, xadj, ordered_adj, ordered_xadj); // single loop with three locks
 	timestamp t_tc;
-	cout << "Triangle counting time: " << t_tc - t_cog << endl;
+	field(false, "triangle_time_sec", t_tc - t_cog);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
 	L = (vertex *) malloc (nEdge * sizeof(vertex));
 	memset (L, -1, sizeof(vertex) * nEdge);
@@ -1291,7 +1295,8 @@ void ktruss_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L,
 			}
 		}
 
-		printf ("Level %d K: %d size: %d\n", level, min_val, mins.size());
+		//field(false, "K_" + to_string(level), min_val);
+		//field(false, "Size_" + to_string(level), mins.size());
 		level++;
 	}
 	na_bs.Free();
@@ -1318,7 +1323,7 @@ void ktruss_Sesh_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, verte
 	createOrdered (nVtx, nEdge, adj, xadj, el, xel, ordered_adj, ordered_xadj);
 
 	timestamp t_cog;
-	cout << "Creating ordered graph: " << t_cog - t_begin << endl;
+	field(false, "ordered_graph_time_sec", t_cog - t_begin);
 
 	// Triangle counting for each edge
 	edge* tc = (edge *) calloc (nEdge, sizeof(vertex));
@@ -1328,9 +1333,9 @@ void ktruss_Sesh_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, verte
 	free (ordered_adj);
 	free (ordered_xadj);
 	timestamp t_tc;
-	cout << "Triangle counting time: " << t_tc - t_cog << endl;
+	field(false, "triangle_time_sec", t_tc - t_cog);
 #ifndef FAST
-	cout << "# triangles: " << tricount << endl;
+	field(false, "triangle_count", tricount);
 #endif
 	L = (vertex *) malloc (nEdge * sizeof(vertex));
 
@@ -1365,7 +1370,7 @@ void ktruss_Sesh_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, verte
 			L[uv] = level;
 		}
 
-		printf ("Level %d size: %d\n", level, atMostT.size());
+		// field(false, "Size_" + to_string(level), atMostT.size());
 		level++;
 	}
 #ifdef DUMP_K

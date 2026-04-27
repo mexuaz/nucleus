@@ -1,7 +1,7 @@
 #include "main.h"
 
 #define MAXLINE 1000000
-#define WRITE_BINARY
+//#define WRITE_BINARY
 
 typedef struct asdf {
 	int f;
@@ -179,11 +179,11 @@ void readMM (char *filename, VtxType* nVtx, EdgeType* nEdge, VtxType** adj, Edge
 	ss >> *nVtx >> *nEdge;
 
 
-	printf ("|V|: %d   |E|: %d\n", *nVtx, *nEdge);
+	//printf ("|V|: %d   |E|: %d\n", *nVtx, *nEdge);
 
 	*nVtx += 1; // Since our graphs are zero-based
 
-	printf ("|V|: %d   |E|: %d\n", *nVtx, *nEdge);
+	//printf ("|V|: %d   |E|: %d\n", *nVtx, *nEdge);
 	// remove duplicate edges, take one direction
 	pprr* coords = (pprr*) malloc (sizeof(pprr) * 2 * *nEdge);
 	VtxType itemp, jtemp, index = 0;
@@ -223,7 +223,9 @@ void readMM (char *filename, VtxType* nVtx, EdgeType* nEdge, VtxType** adj, Edge
 	}
 
 	if (numedge != *nEdge * 2)
-		printf ("nEdge in header is wrong: %d (must be %d)\n", *nEdge, numedge/2);
+	{
+		// cerr << "nEdge in header is wrong: " << *nEdge << " (must be " << numedge/2 << ")" << endl;
+	}
 
 	VV2CRS (graph, nVtx, nEdge, adj, xadj);
 }
