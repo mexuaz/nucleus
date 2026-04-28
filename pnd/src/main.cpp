@@ -1,14 +1,30 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
+
+// Definition of the global JSON stream pointer (declared extern in json.h)
+std::ostringstream* g_jsonSS = nullptr;
+
+inline std::string env(const char* e)
+{
+    auto v = std::getenv(e);
+    if(v)
+	{
+		return std::string(v);
+    }
+    return "";
+}
 
 int main(int argc, char *argv[]) {
 
 	vertex nVtx, *adj;
 	edge nEdge, *xadj;
 
-	if (argc < 2) {
-		fprintf(stderr, "usage: %s "
-				"\n <filename>"
-				"\n <mode>\n", argv[0]);
+	if (argc < 3) {
+		// argument 3 and 4 are for k files and top k, which are only needed for some modes, so we don't check for it here
+		cerr << "usage: "
+			<< std::endl
+			<< argv[0] << " <filename> <mode> [<k_file>] [<top_k>]" << std::endl;
 		exit(1);
 	}
 
@@ -20,11 +36,14 @@ int main(int argc, char *argv[]) {
 	int depth = atoi (argv[2]);
 	string vfile = asdf + "_" + argv[2];
 
-	// dummy, just for backward compatibility
-	int order_choice;
-	if (depth % 10 == 0) {
-		order_choice = atoi (argv[3]);
-		vfile = vfile + "_" + argv[3];
+	std::string kFiles;
+	if (argc >= 4) {
+		kFiles = argv[3];
+	}
+
+	vertex topK = -1;
+	if (argc >= 5) {
+		topK = atoi(argv[4]);
 	}
 
 	// read the graph
@@ -33,19 +52,28 @@ int main(int argc, char *argv[]) {
 
 	nEdge = xadj[nVtx] / 2;
 
-	printf ("|V|: %d   |E|: %d\n", nVtx, nEdge);
+	std::ostringstream jsonSS;
+	g_jsonSS = &jsonSS;
 
-
+	beginObject(true, "environment");
+	field(true, "app", string("pnd") + to_string(depth));
+	field(false, "procs", env("SLURM_CPUS_PER_TASK"));
+	field(false, "host", env("HOSTNAME"));
+	endObject();
+	beginObject(false, "dataset");
+	field(true, "file", asdf);
+	field(false, "vertex_count", nVtx);
+	field(false, "edge_count", nEdge);
+	
 	string out_file;
 	FILE* fp;
-
 
 	vertex* Reals;
 	vector<int> vReals;
 #ifdef DEBUG_0
 	if (depth == 340 || depth == 3400) {
 
-		FILE* aa = fopen (argv[4], "r");
+		FILE* aa = fopen (kFiles.c_str(), "r");
 		int nn, ii = 0;
 		while (fscanf (aa, "%d", &nn) != EOF)
 			vReals.push_back ((nn == -1) ? 0 : nn);
@@ -60,7 +88,7 @@ int main(int argc, char *argv[]) {
 
 
 		Reals = (vertex *) malloc (sizeof(vertex) * sz);
-		FILE* aa = fopen (argv[4], "r");
+		FILE* aa = fopen (kFiles.c_str(), "r");
 		int nn, ii = 0;
 		while (fscanf (aa, "%d", &nn) != EOF)
 			Reals[ii++] = (nn == -1) ? 0 : nn;
@@ -94,30 +122,22 @@ int main(int argc, char *argv[]) {
 		kcore_levels (nVtx, adj, xadj, L, vfile.c_str());
 	}
 	else if (depth == 612) {
-		if (argc < 5) { // todo: update to 4
-			cout << "K file is needed\n";
+		if (kFiles.empty()) {
+			cerr << "K file is needed\n";
 			exit(1);
 		}
-		read_Ks (nVtx, argv[4], &P); // todo: update to 3
+		read_Ks (nVtx, kFiles.c_str(), &P);
 		vfile += "_SESH_LEVELS";
 		vertex* L;
 		kcore_Sesh_levels (nVtx, adj, xadj, P, L, vfile.c_str());
 	}
 	else if (depth == -12) {
-		if (argc < 5) { // todo: update to 4
-			cout << "Top k number is needed\n";
+		if (topK == -1) {
+			cerr << "Top k number is needed\n";
 			exit(1);
 		}
-		vertex top_k = atoi(argv[4]);
-		fast12DegeneracyNumber (nVtx, adj, xadj, P, top_k);
+		fast12DegeneracyNumber (nVtx, adj, xadj, P, topK);
 	}
-
-
-
-
-
-
-
 
 
 
@@ -140,22 +160,21 @@ int main(int argc, char *argv[]) {
 		ktruss_levels (nVtx, nEdge, adj, xadj, L, vfile.c_str());
 	}
 	else if (depth == 623) {
-		if (argc < 5) { // todo: update to 4
-			cout << "T file is needed\n";
+		if (kFiles.empty()) {
+			cerr << "T file is needed\n";
 			exit(1);
 		}
-		read_Ks (nEdge, argv[4], &P); // todo: update to 3
+		read_Ks (nEdge, kFiles.c_str(), &P);
 		vfile += "_SESH_LEVELS";
 		vertex* L;
 		ktruss_Sesh_levels (nVtx, nEdge, adj, xadj, P, L, vfile.c_str());
 	}
 	else if (depth == -23) {
-		if (argc < 5) { // todo: update to 4
-			cout << "Top k number is needed\n";
+		if (topK == -1) {
+			cerr << "Top k number is needed\n";
 			exit(1);
 		}
-		vertex top_k = atoi(argv[4]);
-		fast23DegeneracyNumber (nVtx, nEdge, adj, xadj, P, top_k);
+		fast23DegeneracyNumber (nVtx, nEdge, adj, xadj, P, topK);
 	}
 
 
@@ -171,19 +190,6 @@ int main(int argc, char *argv[]) {
 		vfile += "_ST_TRUSS";
 		nmLocal23_ST (nVtx, nEdge, adj, xadj, P, vfile.c_str());
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -206,12 +212,11 @@ int main(int argc, char *argv[]) {
 		k34_levels (nVtx, nEdge, adj, xadj, L, vfile.c_str());
 	}
 	else if (depth == -34) {
-		if (argc < 5) { // todo: update to 4
-			cout << "Top k number is needed\n";
+		if (topK == -1) { // todo: update to 4
+			cerr << "Top k number is needed\n";
 			exit(1);
 		}
-		vertex top_k = atoi(argv[4]);
-		fast34DegeneracyNumber (nVtx, nEdge, adj, xadj, P, top_k);
+		fast34DegeneracyNumber (nVtx, nEdge, adj, xadj, P, topK);
 	}
 
 
@@ -230,24 +235,17 @@ int main(int argc, char *argv[]) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 #ifdef DEBUG_0
 	if (depth == 340)
 		vReals.clear();
 	else if (depth == 120 || depth == 230)
 		free (Reals);
 #endif
+	
+	endObject();
+	lastObject();
+	g_jsonSS = nullptr;
+	std::cout << jsonSS.str() << std::endl;
 
 	return 0;
 }
