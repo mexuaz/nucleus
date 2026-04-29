@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #SBATCH --account=def-thomo
-#SBATCH --job-name=JeShiNucleusAll
+#SBATCH --job-name=PND
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
 #SBATCH --time=0-03:00          # time (DD-HH:MM)
@@ -16,5 +16,5 @@ module --force purge; module load StdEnv/2023 gcc/12.3 openmpi/4.1.5 cmake/3.31.
 # run_nucleus.sh --program pnd --program-args 341
 # run_nucleus.sh --program nd
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$HOME/scratch/gpu-nucleus/related/nucleus/scripts/nibi"
 exec python3 "$SCRIPT_DIR/run.py" "$@"

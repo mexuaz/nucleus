@@ -14,7 +14,7 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parents[3]  # nibi -> scripts -> nucleus -> related -> repo root
 DATASET_DIR = REPO_ROOT / "src" / "build" / "datasets"
-BIN_DIR = SCRIPT_DIR.parents[1] / "related" / "nucleus" / "bin"
+BIN_DIR = REPO_ROOT / "related" / "nucleus" / "bin"
 
 LARGE_DATASETS = [
     "amazon-2008.mtx",         # 1
