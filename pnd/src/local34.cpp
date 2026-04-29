@@ -397,6 +397,13 @@ void baseLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P
 	field(false, "H_convergence_at", oc);
 	timestamp t_end;
 	field(false, "total_time_sec", t_end - t_begin - td);
+	
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -520,6 +527,13 @@ void nmLocal34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, 
 	field(false, "H_convergence_at", oc);
 	timestamp t_end;
 	field(false, "total_time_sec", t_end - t_begin - td);
+	
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -643,8 +657,16 @@ void k34_SF (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const 
 	timestamp t_end;
 	field(false, "total_time_sec", t_end - t_begin);
 
+	auto sz = tlist.size();
+	field(false, "K_avg", [sz, &F](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += F[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
+
 #ifdef DUMP_K
-	print_Ks (tlist.size(), F, vfile);
+	print_Ks (sz, F, vfile);
 #endif
 	return;
 }
@@ -1101,6 +1123,13 @@ void baseLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, c
 	field(false, "H_convergence_at", oc);
 	timestamp t_end;
 	field(false, "total_time_sec", t_end - t_begin - td);
+	
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
@@ -1240,6 +1269,13 @@ void nmLocal34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* P, con
 	timestamp t_end;
 	field(false, "total_time_sec", t_end - t_begin - td);
 
+	field(false, "K_avg", [sz, &P](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += P[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
+
 #ifdef DUMP_K
 	print_Ks (sz, P, vfile);
 #endif
@@ -1355,6 +1391,14 @@ void k34 (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* F, const cha
 	field(false, "K_max", fc_of_uvw);
 	timestamp t_end;
 	field(false, "total_time_sec", t_end - t_begin);
+
+	auto sz = tlist.size();
+	field(false, "K_avg", [sz, &F](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += F[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
 
 #ifdef DUMP_K
 	print_Ks (tlist.size(), F, vfile);
@@ -1585,6 +1629,18 @@ void k34_levels (vertex nVtx, edge nEdge, vertex* adj, edge* xadj, vertex* L, co
 		level++;
 	}
 	na_bs.Free();
+
+	timestamp t_end;
+	field(false, "total_time_sec", t_end - t_begin);
+	
+	auto sz = tlist.size();
+	field(false, "K_avg", [sz, &L](){ 
+		double sumK = 0.;
+		for (size_t i = 0; i < sz; i++)
+			sumK += L[i];
+		return sz ? (sumK / sz) : 0.;
+	}());
+	
 #ifdef DUMP_K
 	print_Ks (nEdge, L, vfile);
 #endif

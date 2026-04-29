@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -166,41 +167,90 @@ def run_large(
     return exit_code, aggregate_output
 
 
+def parse_program_specs(raw_values: list[str]) -> list[tuple[str, list[str]]]:
+    specs: list[tuple[str, list[str]]] = []
+
+    for raw_value in raw_values:
+        entries = [entry.strip() for entry in raw_value.split(",") if entry.strip()]
+        for entry in entries:
+            if ":" not in entry:
+                raise ValueError(
+                    f"Invalid --program value '{entry}'. Expected 'program:mode'."
+                )
+
+            program_name, mode_str = entry.split(":", 1)
+            program_name = program_name.strip()
+            mode_args = mode_str.split() if mode_str.strip() else []
+
+            if not program_name:
+                raise ValueError(
+                    f"Invalid --program value '{entry}'. Program name cannot be empty."
+                )
+
+            if not mode_args:
+                raise ValueError(
+                    f"Invalid --program value '{entry}'. Mode cannot be empty."
+                )
+
+            specs.append((program_name, mode_args))
+
+    if not specs:
+        raise ValueError("At least one --program value is required.")
+
+    return specs
+
+
+def run_program_specs(
+    program_specs: list[tuple[str, list[str]]],
+    runner: Callable[[str, list[str]], tuple[int, dict[str, object]]],
+) -> tuple[int, dict[str, object]]:
+    aggregate_output: dict[str, object] = {}
+
+    for program_name, mode_args in program_specs:
+        exit_code, output = runner(program_name, mode_args)
+        aggregate_output.update(output)
+        if exit_code != 0:
+            return exit_code, aggregate_output
+
+    return 0, aggregate_output
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run a nucleus decomposition program on sample or large datasets."
     )
     parser.add_argument(
         "--program",
-        default="pnd",
+        action="append",
+        default=None,
         help=(
-            "Program to execute. One of: nd, bnd, pnd, dnd, or an executable path."
+            "Program and mode pair in format 'program:mode' (e.g. --program pnd:341). "
+            "Use multiple --program flags or comma-separated values to run several entries "
+            "(e.g. --program nd:34 --program pnd:341 or --program nd:34,pnd:341)."
         ),
     )
     parser.add_argument(
         "--cores",
-        default="1,2,4,8,16,32,64,96,192",
+        default="1,2,4,8,16,24,32,48,64,80,96",
         help="Comma-separated list of core counts for the sweep.",
-    )
-    parser.add_argument(
-        "--program-args",
-        default="",
-        help=(
-            "Extra space-separated arguments forwarded to the program after the dataset path "
-            "(e.g. --program-args='341' for pnd (3,4)-nucleus decomposition)."
-        ),
     )
 
     args, rest = parser.parse_known_args()
     core_counts = [int(x) for x in args.cores.split(",") if x.strip()]
-    program_args = args.program_args.split() if args.program_args.strip() else []
+    try:
+        program_specs = parse_program_specs(args.program or ["pnd:341"])
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if rest:
         if rest[0] in {"sample", "s"}:
             if len(rest) > 2:
                 parser.error("sample mode accepts at most one dataset index")
             graph_num = rest[1] if len(rest) == 2 else "50"
-            exit_code, output = run_sample(args.program, graph_num, program_args)
+            exit_code, output = run_program_specs(
+                program_specs,
+                lambda program_name, mode_args: run_sample(program_name, graph_num, mode_args),
+            )
             print(json.dumps(output, indent=2))
             return exit_code
 
@@ -208,25 +258,56 @@ def main() -> int:
             if len(rest) > 2:
                 parser.error("large mode accepts at most one dataset index")
             dataset_index = rest[1] if len(rest) == 2 else "0"
-            exit_code, output = run_large(args.program, dataset_index, core_counts, program_args)
+            exit_code, output = run_program_specs(
+                program_specs,
+                lambda program_name, mode_args: run_large(
+                    program_name,
+                    dataset_index,
+                    core_counts,
+                    mode_args,
+                ),
+            )
             print(json.dumps(output, indent=2))
             return exit_code
 
         if len(rest) == 1 and rest[0].isdigit():
-            exit_code, output = run_large(args.program, rest[0], core_counts, program_args)
+            dataset_index = rest[0]
+            exit_code, output = run_program_specs(
+                program_specs,
+                lambda program_name, mode_args: run_large(
+                    program_name,
+                    dataset_index,
+                    core_counts,
+                    mode_args,
+                ),
+            )
             print(json.dumps(output, indent=2))
             return exit_code
 
         parser.error(
-            "Usage: run.py [--program PROGRAM] [--cores CORES] [--program-args ARGS] "
-            "[sample|s [index] | large|l [index] | <large-index>]"
+            "Usage: run.py [OPTIONS] [sample|s [index] | large|l [index] | <large-index>]\n\n"
+            "OPTIONS:\n"
+            "  --program PROGRAM:MODE         Program and mode pair; repeat or comma-separate values\n"
+            "  --cores CORES                  Comma-separated core counts\n"
+            "                                 (default: 1,2,4,8,16,24,32,48,64,80,96)\n\n"
+            "EXAMPLES:\n"
+            "  # Run nd with modes 34, 23, 12 on all large datasets:\n"
+            "  run.py --program nd:34 --program nd:23 --program nd:12 large\n\n"
+            "  # Run pnd with modes 341, 340 on all large datasets:\n"
+            "  run.py --program pnd:341,pnd:340 large\n\n"
+            "  # Run both nd and pnd with specific cores:\n"
+            "  run.py --cores '1,4,16,64' --program nd:34 --program nd:23 "
+            "--program pnd:341 --program pnd:340 large\n\n"
+            "  # Run on sample dataset:\n"
+            "  run.py --program nd:34 --program pnd:341 sample 1\n\n"
+            "  # Run single program:\n"
+            "  run.py --program pnd:341 large"
         )
 
-    # Default: all large datasets for pnd with 341
-    if not program_args and args.program == "pnd":
-        program_args = ["341"]
-
-    exit_code, output = run_large(args.program, "0", core_counts, program_args)
+    exit_code, output = run_program_specs(
+        program_specs,
+        lambda program_name, mode_args: run_large(program_name, "0", core_counts, mode_args),
+    )
     print(json.dumps(output, indent=2))
     return exit_code
 
