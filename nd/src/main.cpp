@@ -1,13 +1,26 @@
 #include "main.h"
+#include "json.h"
+using namespace json;
+
+// Definition of the global JSON stream pointer (declared extern in json.h)
+std::ostringstream* g_jsonSS = nullptr;
+
+inline std::string env(const char* e)
+{
+	auto v = std::getenv(e);
+	if (v)
+		return std::string(v);
+	return "";
+}
 
 int main (int argc, char *argv[]) {
 
 	timestamp t1;
 	if (argc < 3) {
-		fprintf(stderr, "usage: %s "
+		cerr << "usage: " << argv[0] << 
 				"\n <filename>"
 				"\n <nucleus type: 12, 13, 14, 23, 24, 34>"
-				"\n <hierarchy?: YES or NO>\n", argv[0]);
+				"\n [hierarchy: YES or NO] (optional, defaults to NO)" << endl;
 		exit(1);
 	}
 
@@ -17,7 +30,7 @@ int main (int argc, char *argv[]) {
 
 	string nd (argv[2]);
 	if (!(nd == "12" || nd == "13" || nd == "14" || nd == "23" || nd == "24" || nd == "34")) {
-		printf ("Invalid algorithm, options are 12, 13, 14, 23, 24, and 34\n");
+		cerr << "Invalid algorithm, options are 12, 13, 14, 23, 24, and 34" << endl;
 		exit(1);
 	}
 
@@ -25,18 +38,38 @@ int main (int argc, char *argv[]) {
 	edge nEdge = 0;
 	Graph graph;
 	readGraph<vertex, edge> (filename, graph, &nEdge);
-	printf ("nEdge: %d\n", nEdge);
-	string hrc (argv[3]);
 	string vfile = gname + "_" + nd;
 	string out_file;
 
-	bool hierarchy = (hrc == "YES" ? true : false);
+	bool hierarchy = false;
+	if (argc >= 4) {
+		string hrc (argv[3]);
+		if (hrc == "YES")
+			hierarchy = true;
+		else if (hrc != "NO") {
+			cerr << "Invalid hierarchy option, options are YES and NO" << endl;
+			exit(1);
+		}
+	}
 	if (hierarchy)
 		out_file = vfile + "_Hierarchy";
 	else
 		out_file = vfile + "_K";
 
 	FILE* fp = fopen (out_file.c_str(), "w");
+
+	std::ostringstream jsonSS;
+	g_jsonSS = &jsonSS;
+
+	beginObject(true, "environment");
+	field(true, "app", string("nd") + nd);
+	field(false, "host", env("HOSTNAME"));
+	endObject();
+	beginObject(false, "dataset");
+	field(true, "file", gname);
+	field(false, "vertex_count", (int)graph.size());
+	field(false, "edge_count", nEdge);
+	field(false, "hierarchy", hierarchy);
 
 	vertex maxK; // maximum K value in the graph
 	vector<vertex> K;
@@ -65,9 +98,14 @@ int main (int argc, char *argv[]) {
 #endif
 
 	timestamp t2;
-	printf ("%s\t|V|: %d\t|E|: %d\tmaxK for %s-nucleus: %d\n", gname.c_str(), graph.size(), nEdge, nd.c_str(), maxK);
-	print_time (fp, "End-to-end Time: ", t2 - t1);
+	field(false, "K_max", maxK);
+	field(false, "app_time_sec", t2 - t1);
+	endObject();
+	lastObject();
 	fclose (fp);
+
+	g_jsonSS = nullptr;
+	std::cout << jsonSS.str() << std::endl;
 
 	return 0;
 }
