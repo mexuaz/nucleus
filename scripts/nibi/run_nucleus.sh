@@ -3,7 +3,7 @@
 #SBATCH --job-name=Sariyuce
 #SBATCH --output=%x-%j.out
 #SBATCH --error=%x-%j.err
-#SBATCH --time=0-03:00          # time (DD-HH:MM)
+#SBATCH --time=0-09:00          # time (DD-HH:MM)
 #SBATCH --nodes=1               # Forces the job to run on exactly one physical node
 #SBATCH --ntasks=1              # Single task for the whole node
 #SBATCH --cpus-per-task=96      # Nibi CPU nodes have 192 cores, we use one socket with 96 cores, so we set this to 96. The script will use fewer cores if specified by the --cores argument.
@@ -35,7 +35,7 @@ module --force purge; module load StdEnv/2023 gcc/12.3 openmpi/4.1.5 cmake/3.31.
 #     run_nucleus.sh --program nd:34 --program pnd:341 sample 1
 
 # Job for submitting to Compute Canada Slurm Scheduler from RESULTS/ncx directory
-# sbatch ../../related/nucleus/scripts/nibi/run_nucleus.sh --program pnd:341 --program pnd:340 --program nd:34 --program nd:23 --program nd:12 large
+# sbatch ../../related/nucleus/scripts/nibi/run_nucleus.sh --program pnd:341,pnd:340,nd:34 --cores 1,4,16,32,64,96 large
 
 SCRIPT_DIR="$HOME/scratch/gpu-nucleus/related/nucleus/scripts/nibi"
 exec python3 "$SCRIPT_DIR/run.py" "$@"

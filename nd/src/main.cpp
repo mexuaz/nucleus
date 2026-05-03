@@ -5,6 +5,8 @@ using namespace json;
 // Definition of the global JSON stream pointer (declared extern in json.h)
 std::ostringstream* g_jsonSS = nullptr;
 
+constexpr bool report_subgraph = false; // set to true to report the subgraph values, setting to false will skip the invokation of the reportSubgraph function and thus save time for large graphs
+
 inline std::string env(const char* e)
 {
 	auto v = std::getenv(e);
@@ -43,7 +45,6 @@ int main (int argc, char *argv[]) {
 		Graph graph;
 		readGraph<vertex, edge> (filename, graph, &nEdge);
 		string vfile = gname + "_" + nd;
-		string out_file;
 
 		bool hierarchy = false;
 		if (argc >= 4) {
@@ -55,12 +56,17 @@ int main (int argc, char *argv[]) {
 				exit(1);
 			}
 		}
+		
+		string out_file;
 		if (hierarchy)
 			out_file = vfile + "_Hierarchy";
 		else
 			out_file = vfile + "_K";
 
-		FILE* fp = fopen (out_file.c_str(), "w");
+		FILE* fp = nullptr;
+		if(report_subgraph) {
+			fp = fopen (out_file.c_str(), "w");
+		}
 
 		g_jsonSS = &jsonSS;
 
@@ -105,7 +111,9 @@ int main (int argc, char *argv[]) {
 		field(false, "app_time_sec", t2 - t1);
 		endObject();
 		lastObject();
-		fclose (fp);
+
+		if(fp)
+			fclose (fp);
 
 		g_jsonSS = nullptr;
 		std::cout << jsonSS.str() << std::endl;
