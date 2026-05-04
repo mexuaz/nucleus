@@ -35,6 +35,33 @@ PROGRAM_PATHS = {
 }
 
 
+def load_output_file(output_path: Path) -> dict[str, object]:
+    if not output_path.exists():
+        return {}
+
+    try:
+        existing = json.loads(output_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Existing output file is not valid JSON: {output_path}: {exc}") from exc
+
+    if not isinstance(existing, dict):
+        raise SystemExit(
+            f"Existing output file must contain a top-level JSON object: {output_path}"
+        )
+
+    return existing
+
+
+def write_output_file(output_path: Path, new_output: dict[str, object]) -> None:
+    merged_output = load_output_file(output_path)
+    merged_output.update(new_output)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    temp_path.write_text(json.dumps(merged_output, indent=2))
+    temp_path.replace(output_path)
+
+
 def build_env() -> dict[str, str]:
     env = os.environ.copy()
     return env
@@ -62,6 +89,7 @@ def run_program(
     dataset_path: Path,
     program_args: list[str],
     core_counts: list[int],
+    output_path: Path | None = None,
 ) -> tuple[int, dict[str, object]]:
     program_path = resolve_program(program_name)
 
@@ -112,7 +140,7 @@ def run_program(
             return completed.returncode, outputs
 
         try:
-            outputs[timestamp] = json.loads(completed.stdout)
+            parsed_output = json.loads(completed.stdout)
         except json.JSONDecodeError as exc:
             print(
                 f"ERROR: Program output is not valid JSON for {dataset_path} (cores={n}): {exc}",
@@ -122,6 +150,10 @@ def run_program(
                 print(completed.stdout, file=sys.stderr, end="")
             return 1, outputs
 
+        outputs[timestamp] = parsed_output
+        if output_path is not None:
+            write_output_file(output_path, {timestamp: parsed_output})
+
     return 0, outputs
 
 
@@ -129,9 +161,16 @@ def run_sample(
     program_name: str,
     graph_num: str,
     program_args: list[str],
+    output_path: Path | None = None,
 ) -> tuple[int, dict[str, object]]:
     dataset_path = REPO_ROOT / "datasets" / "tests" / f"sample_input_graph_{graph_num}.mtx"
-    return run_program(program_name, dataset_path, program_args, core_counts=[1])
+    return run_program(
+        program_name,
+        dataset_path,
+        program_args,
+        core_counts=[1],
+        output_path=output_path,
+    )
 
 
 def run_large(
@@ -139,6 +178,7 @@ def run_large(
     dataset_index: str,
     core_counts: list[int],
     program_args: list[str],
+    output_path: Path | None = None,
 ) -> tuple[int, dict[str, object]]:
     aggregate_output: dict[str, object] = {}
 
@@ -153,14 +193,26 @@ def run_large(
 
         dataset_name = LARGE_DATASETS[index - 1]
         dataset_path = DATASET_DIR / dataset_name
-        exit_code, output = run_program(program_name, dataset_path, program_args, core_counts)
+        exit_code, output = run_program(
+            program_name,
+            dataset_path,
+            program_args,
+            core_counts,
+            output_path=output_path,
+        )
         aggregate_output.update(output)
         return exit_code, aggregate_output
 
     exit_code = 0
     for dataset_name in LARGE_DATASETS:
         dataset_path = DATASET_DIR / dataset_name
-        result_code, output = run_program(program_name, dataset_path, program_args, core_counts)
+        result_code, output = run_program(
+            program_name,
+            dataset_path,
+            program_args,
+            core_counts,
+            output_path=output_path,
+        )
         exit_code = exit_code or result_code
         aggregate_output.update(output)
 
@@ -234,9 +286,19 @@ def main() -> int:
         default="1,2,4,8,16,24,32,48,64,80,96",
         help="Comma-separated list of core counts for the sweep.",
     )
+    parser.add_argument(
+        "--output-json",
+        type=Path,
+        help=(
+            "Write results to a JSON file instead of stdout. The file is updated after each "
+            "successful execution by reading any existing JSON object, merging the new result, "
+            "and writing valid JSON back to disk."
+        ),
+    )
 
     args, rest = parser.parse_known_args()
     core_counts = [int(x) for x in args.cores.split(",") if x.strip()]
+    output_path = args.output_json.resolve() if args.output_json is not None else None
     try:
         program_specs = parse_program_specs(args.program or ["pnd:341"])
     except ValueError as exc:
@@ -249,9 +311,15 @@ def main() -> int:
             graph_num = rest[1] if len(rest) == 2 else "50"
             exit_code, output = run_program_specs(
                 program_specs,
-                lambda program_name, mode_args: run_sample(program_name, graph_num, mode_args),
+                lambda program_name, mode_args: run_sample(
+                    program_name,
+                    graph_num,
+                    mode_args,
+                    output_path=output_path,
+                ),
             )
-            print(json.dumps(output, indent=2))
+            if output_path is None:
+                print(json.dumps(output, indent=2))
             return exit_code
 
         if rest[0] in {"large", "l"}:
@@ -265,9 +333,11 @@ def main() -> int:
                     dataset_index,
                     core_counts,
                     mode_args,
+                    output_path=output_path,
                 ),
             )
-            print(json.dumps(output, indent=2))
+            if output_path is None:
+                print(json.dumps(output, indent=2))
             return exit_code
 
         if len(rest) == 1 and rest[0].isdigit():
@@ -279,9 +349,11 @@ def main() -> int:
                     dataset_index,
                     core_counts,
                     mode_args,
+                    output_path=output_path,
                 ),
             )
-            print(json.dumps(output, indent=2))
+            if output_path is None:
+                print(json.dumps(output, indent=2))
             return exit_code
 
         parser.error(
@@ -290,6 +362,7 @@ def main() -> int:
             "  --program PROGRAM:MODE         Program and mode pair; repeat or comma-separate values\n"
             "  --cores CORES                  Comma-separated core counts\n"
             "                                 (default: 1,2,4,8,16,24,32,48,64,80,96)\n\n"
+            "  --output-json PATH            Persist merged JSON results to PATH after each run\n\n"
             "EXAMPLES:\n"
             "  # Run nd with modes 34, 23, 12 on all large datasets:\n"
             "  run.py --program nd:34 --program nd:23 --program nd:12 large\n\n"
@@ -306,9 +379,16 @@ def main() -> int:
 
     exit_code, output = run_program_specs(
         program_specs,
-        lambda program_name, mode_args: run_large(program_name, "0", core_counts, mode_args),
+        lambda program_name, mode_args: run_large(
+            program_name,
+            "0",
+            core_counts,
+            mode_args,
+            output_path=output_path,
+        ),
     )
-    print(json.dumps(output, indent=2))
+    if output_path is None:
+        print(json.dumps(output, indent=2))
     return exit_code
 
 

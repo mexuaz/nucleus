@@ -309,12 +309,13 @@ void readGraph (char *filename, VtxType* nVtx, EdgeType* nEdge, VtxType** adj, E
 		readBinary<VtxType, EdgeType> (filename, nVtx, nEdge, adj, xadj);
 	else if (ext == ".graph")
 		readChaco<VtxType, EdgeType> (filename, nVtx, nEdge, adj, xadj);
-	else if (gname.find("out") == 0) {
-		printf ("it's out\n");
+	else if (gname.find("out") == 0 || ext == ".txt" || ext == ".edges") {
 		readOut<VtxType, EdgeType> (filename, nVtx, nEdge, adj, xadj);
 	}
-	else // .mtx or .txt
+	else {
+		// .mtx
 		readMM<VtxType, EdgeType> (filename, nVtx, nEdge, adj, xadj);
+	}
 
 #ifdef WRITE_BINARY
 	if (ext != ".bin") {

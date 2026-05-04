@@ -32,6 +32,7 @@ Options:
 
 - `--program PROGRAM:MODE` Run program with mode (can be specified multiple times or comma-separated, default: `pnd:341`)
 - `--cores CORES` Comma-separated core counts (default: `1,2,4,8,16,24,32,48,64,80,96`)
+- `--output-json PATH` Append each completed execution result into `PATH` as a merged JSON object instead of printing the final aggregate to stdout
 
 Modes:
 
@@ -49,6 +50,9 @@ sbatch ./scripts/nibi/run_nucleus.sh --program pnd:341,pnd:340 large
 
 # Run both nd and pnd with multiple modes across specific cores
 sbatch ./scripts/nibi/run_nucleus.sh --cores "1,4,16,64" --program nd:34,nd:23,nd:12 --program pnd:341,pnd:340 large
+
+# Persist results incrementally to a JSON file
+sbatch ./scripts/nibi/run_nucleus.sh --output-json RESULTS/nc1/run.json --program pnd:341,pnd:340,nd:34 large
 
 # Run on sample dataset
 sbatch ./scripts/nibi/run_nucleus.sh --program nd:34 --program pnd:341 sample 1
