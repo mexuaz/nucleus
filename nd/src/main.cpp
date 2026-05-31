@@ -22,6 +22,7 @@ int main (int argc, char *argv[]) {
 		cerr << "usage: " << argv[0] << 
 				"\n <filename>"
 				"\n <nucleus type: 12, 13, 14, 23, 24, 34>"
+				"\n [k_values_file] (optional, if provided K values are written to this file)"
 				"\n [hierarchy: YES or NO] (optional, defaults to NO)" << endl;
 		exit(1);
 	}
@@ -47,8 +48,8 @@ int main (int argc, char *argv[]) {
 		string vfile = gname + "_" + nd;
 
 		bool hierarchy = false;
-		if (argc >= 4) {
-			string hrc (argv[3]);
+		if (argc >= 5) {
+			string hrc (argv[4]);
 			if (hrc == "YES")
 				hierarchy = true;
 			else if (hrc != "NO") {
@@ -98,13 +99,17 @@ int main (int argc, char *argv[]) {
 		else if (nd == "34")
 			base_k34 (graph, hierarchy, nEdge, K, &maxK, vfile, fp);
 
-	#ifdef K_VALUES
-		string kfile = vfile + "_K_values";
-		FILE* kf = fopen (kfile.c_str(), "w");
-		for (vertex i = 0; i < K.size(); i++)
-			fprintf (kf, "%lld\n", K[i]);
-		fclose (kf);
-	#endif
+		if (argc >= 4) {
+			const char* kfile = argv[3];
+			FILE* kf = fopen (kfile, "w");
+			if (!kf) {
+				cerr << "Could not open K values file for writing: " << kfile << endl;
+			} else {
+				for (vertex i = 0; i < K.size(); i++)
+					fprintf (kf, "%lld\n", K[i]);
+				fclose (kf);
+			}
+		}
 
 		timestamp t2;
 		field(false, "K_max", maxK);
