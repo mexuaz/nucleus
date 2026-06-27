@@ -5,14 +5,23 @@ using namespace json;
 // Definition of the global JSON stream pointer (declared extern in json.h)
 std::ostringstream* g_jsonSS = nullptr;
 
-constexpr bool report_subgraph = false; // set to true to report the subgraph values, setting to false will skip the invokation of the reportSubgraph function and thus save time for large graphs
-
 inline std::string env(const char* e)
 {
 	auto v = std::getenv(e);
 	if (v)
 		return std::string(v);
 	return "";
+}
+
+// Report the per-nucleus subgraphs (the *_NUCLEI and *_Hierarchy files) only when
+// asked for via the NUCLEUS_REPORT_SUBGRAPH env var. This is expensive for large
+// graphs, so it stays off by default to preserve the timing-run behavior.
+// Enable with NUCLEUS_REPORT_SUBGRAPH=1 (or yes/true/on).
+inline bool report_subgraph_enabled()
+{
+	std::string v = env("NUCLEUS_REPORT_SUBGRAPH");
+	for (auto& c : v) c = std::tolower(static_cast<unsigned char>(c));
+	return v == "1" || v == "yes" || v == "true" || v == "on";
 }
 
 int main (int argc, char *argv[]) {
@@ -64,6 +73,7 @@ int main (int argc, char *argv[]) {
 		else
 			out_file = vfile + "_K";
 
+		const bool report_subgraph = report_subgraph_enabled();
 		FILE* fp = nullptr;
 		if(report_subgraph) {
 			fp = fopen (out_file.c_str(), "w");

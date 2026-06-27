@@ -11,6 +11,7 @@
 #include <utility>
 #include <string>
 #include <initializer_list>
+#include <cctype>
 
 #include <assert.h>
 #include <errno.h>
