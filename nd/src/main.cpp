@@ -5,6 +5,10 @@ using namespace json;
 // Definition of the global JSON stream pointer (declared extern in json.h)
 std::ostringstream* g_jsonSS = nullptr;
 
+// Max subgraph size for which densities are computed (declared extern in main.h).
+// Overridden at runtime by NUCLEUS_DENSITY_UPPERBOUND; see report_subgraph below.
+long g_upperbound = 500;
+
 inline std::string env(const char* e)
 {
 	auto v = std::getenv(e);
@@ -74,6 +78,25 @@ int main (int argc, char *argv[]) {
 			out_file = vfile + "_K";
 
 		const bool report_subgraph = report_subgraph_enabled();
+
+		// Allow raising the density-computation size cap so the maximal (outer)
+		// nuclei of large graphs are reported instead of being dropped as dummies.
+		// Accepts an integer, or max/all/inf/unlimited for "no limit".
+		{
+			std::string ub = env("NUCLEUS_DENSITY_UPPERBOUND");
+			for (auto& c : ub) c = std::tolower(static_cast<unsigned char>(c));
+			if (!ub.empty()) {
+				if (ub == "max" || ub == "all" || ub == "inf" || ub == "unlimited")
+					g_upperbound = INT_MAX;
+				else {
+					char* end = nullptr;
+					long v = std::strtol(ub.c_str(), &end, 10);
+					if (end != ub.c_str() && v > 0)
+						g_upperbound = v;
+				}
+			}
+		}
+
 		FILE* fp = nullptr;
 		if(report_subgraph) {
 			fp = fopen (out_file.c_str(), "w");

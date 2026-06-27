@@ -80,9 +80,10 @@ decompositions on the selected large dataset:
 - `nucleus34` &rarr; `(3,4)`-nucleus (algorithm `34`)
 
 `INDEX` is a 1-based index into the large-dataset list (`0`/`all` runs every
-dataset). For each tool it writes one CSV (`kcore.csv`, `ktruss.csv`,
-`nucleus34.csv`) with one row per **maximal nucleus** — a connected component in
-the nucleus forest, i.e. a direct child of the artificial whole-graph root:
+dataset). For each dataset+tool it writes one CSV named `{dataset-name}_{tool}.csv`
+(e.g. `amazon-2008_kcore.csv`, `amazon-2008_ktruss.csv`, `amazon-2008_nucleus34.csv`)
+with one row per **maximal nucleus** — a connected component in the nucleus
+forest, i.e. a direct child of the artificial whole-graph root:
 
 ```
 dataset, level, nucleus_id, vertex_count, edge_count, density

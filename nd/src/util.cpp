@@ -19,7 +19,7 @@ inline vertex commons (vector<vertex>& a, vector<vertex>& b) {
 
 bool pullChildrenSets (FILE* fp, vector<vertex>& children, HashMap<vertex>& orderInFile, vector<vertex>& vset, vector<subcore>& skeleton) {
 
-	int limit = UPPERBOUND;
+	long limit = g_upperbound;
 	char c;
 	for (vertex eda : children) {
 		if (skeleton[eda].size == -1)
@@ -52,7 +52,7 @@ bool pullChildrenSets (FILE* fp, vector<vertex>& children, HashMap<vertex>& orde
 		while (fscanf (fp, "%d", &d) != EOF) {
 			if (d != -1) {
 				vset.push_back (d);
-				if (vset.size() > limit) {
+				if ((long) vset.size() > limit) {
 					fseek (fp, 0, SEEK_END);
 					return false;
 				}
@@ -150,7 +150,7 @@ void reportSubgraph (int variant, vertex index, HashMap<vertex>& orderInFile, ve
 
 	// edge density
 	edge edge_count = 0;
-	if (vset.size() <= UPPERBOUND)
+	if ((long) vset.size() <= g_upperbound)
 		for (size_t i = 0; i < vset.size(); i++)
 			edge_count += commons (vset, graph[vset[i]]);
 

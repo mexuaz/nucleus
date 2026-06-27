@@ -31,7 +31,12 @@ using namespace std;
 using namespace util;
 
 #define LOWERBOUND 0
-#define UPPERBOUND 500 // compute densities of subgraphs with at most this size, set to INT_MAX to compute all -- takes a lot of time
+// Max subgraph size for which densities (|V|, |E|) are computed. Larger nuclei
+// are emitted as dummy lines and, because that propagates to their ancestors,
+// the maximal (outer) nuclei of big graphs get dropped. Configurable at runtime
+// via the NUCLEUS_DENSITY_UPPERBOUND env var (default 500; set very large to
+// compute every nucleus -- takes more time/memory). Defined in main.cpp.
+extern long g_upperbound;
 #define THRESHOLD 0.0
 #define PRIME 251231 // for hash function
 
@@ -128,7 +133,7 @@ inline bool hashUniquify (vector<vertex>& vertices) {
 			vertices.erase (vertices.begin() + i);
 			i--;
 		}
-		if (i > UPPERBOUND)
+		if ((long) i > g_upperbound)
 			return false;
 	}
 	sort (vertices.begin(), vertices.end());
