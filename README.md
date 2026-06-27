@@ -63,7 +63,7 @@ sbatch ../../related/nucleus/scripts/nibi/run_nucleus.sh --program pnd:341,pnd:3
 
 The wrapper forwards arguments to `scripts/nibi/run.py`, which executes the selected configurations.
 
-## Reporting Maximal Nuclei (subgraph CSVs)
+## Reporting Nuclei (subgraph CSVs)
 
 To enumerate the dense subgraphs of a large dataset instead of timing it, use the
 CPU runner:
@@ -82,8 +82,8 @@ decompositions on the selected large dataset:
 `INDEX` is a 1-based index into the large-dataset list (`0`/`all` runs every
 dataset). For each dataset+tool it writes one CSV named `{dataset-name}_{tool}.csv`
 (e.g. `amazon-2008_kcore.csv`, `amazon-2008_ktruss.csv`, `amazon-2008_nucleus34.csv`)
-with one row per **maximal nucleus** — a connected component in the nucleus
-forest, i.e. a direct child of the artificial whole-graph root:
+with one row per **nucleus** — every maximal connected subgraph in the forest
+across all K levels, excluding only the artificial whole-graph root:
 
 ```
 dataset, level, nucleus_id, vertex_count, edge_count, density

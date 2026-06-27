@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Report the maximal nuclei (connected components of the nucleus forest) for the
-large datasets.
+"""Report every nucleus of the nucleus forest for the large datasets.
 
 For a selected dataset, this runs the sequential `nd/nucleus` binary in
 hierarchy mode for three decompositions:
@@ -10,9 +9,10 @@ hierarchy mode for three decompositions:
     nucleus34 -> (3,4)-nucleus  (algorithm 34)
 
 Each run writes a `<dataset>_<algo>_NUCLEI` file describing the full hierarchy
-forest. A *maximal nucleus* is a connected component in that forest, i.e. a
-direct child of the artificial whole-graph root (the only node whose parent is
--1). Each such node's |V|/|E| already aggregates its whole subtree.
+forest. Every node in that forest is a nucleus (a maximal connected subgraph at
+its K threshold); its |V|/|E| aggregates its whole subtree. This runner emits
+one row per nucleus across all K levels, excluding only the artificial
+whole-graph root (the single node whose parent is -1).
 
 One CSV is written per dataset+tool, named `{dataset-name}_{tool}.csv`, with the
 columns:
@@ -27,8 +27,8 @@ default timing builds skip them.
 
 By default the binary only computes |V|/|E| for nuclei with at most 500 vertices
 and writes larger ones as dummy lines -- which drops exactly the large/outer
-maximal nuclei. This runner sets NUCLEUS_DENSITY_UPPERBOUND=max so every nucleus
-is computed; use --max-subgraph-size to trade completeness for speed/memory.
+nuclei. This runner sets NUCLEUS_DENSITY_UPPERBOUND=max so every nucleus is
+computed; use --max-subgraph-size to trade completeness for speed/memory.
 """
 
 from __future__ import annotations
@@ -89,26 +89,23 @@ def parse_nuclei(path: Path) -> dict[int, dict[str, int]]:
     return nodes
 
 
-def maximal_nuclei(nodes: dict[int, dict[str, int]]) -> list[dict[str, int]]:
-    """Return the connected components of the forest: the direct children of the
-    artificial whole-graph root.
+def all_nuclei(nodes: dict[int, dict[str, int]]) -> list[dict[str, int]]:
+    """Return every nucleus in the forest with a computed size.
 
-    The real root is the node with parent == -1 *and* a computed size (V >= 0).
-    Nuclei whose size exceeded the density-computation cap are written as dummy
-    lines (V == -1), and that propagates to their ancestors which then also get
-    parent == -1; those are skipped so they are not mistaken for roots.
+    Each node in the hierarchy is a nucleus (a maximal connected subgraph at its
+    K threshold); the rows span all K levels, not just the forest roots.
+
+    Excluded:
+      * the artificial whole-graph root -- the only node with parent == -1.
+      * dummy lines (V == -1) written when a nucleus exceeds the density cap;
+        such a node also gets parent == -1, so the parent != -1 filter drops it.
     """
-    roots = {
-        nid for nid, node in nodes.items() if node["parent"] == -1 and node["V"] >= 0
-    }
-    components = [
-        node
-        for node in nodes.values()
-        if node["parent"] in roots and node["V"] >= 0
+    nuclei = [
+        node for node in nodes.values() if node["parent"] != -1 and node["V"] >= 0
     ]
-    # Largest component first, ties broken by id for determinism.
-    components.sort(key=lambda node: (-node["V"], node["id"]))
-    return components
+    # Largest nucleus first, ties broken by id for determinism.
+    nuclei.sort(key=lambda node: (-node["V"], node["id"]))
+    return nuclei
 
 
 def run_tool(
@@ -157,13 +154,13 @@ def run_tool(
         print(
             f"[{tool}] {gname}: WARNING: {dropped} nuclei exceeded the size cap "
             f"(NUCLEUS_DENSITY_UPPERBOUND={max_subgraph_size}) and were dropped; "
-            "some maximal nuclei may be missing. Re-run with --max-subgraph-size max.",
+            "some nuclei are missing. Re-run with --max-subgraph-size max.",
             file=sys.stderr,
             flush=True,
         )
 
     rows: list[dict[str, object]] = []
-    for node in maximal_nuclei(nodes):
+    for node in all_nuclei(nodes):
         rows.append(
             {
                 "dataset": gname,
@@ -174,9 +171,7 @@ def run_tool(
                 "density": f"{density(node['V'], node['E']):.6f}",
             }
         )
-    print(
-        f"[{tool}] {gname}: {len(rows)} maximal nuclei", file=sys.stderr, flush=True
-    )
+    print(f"[{tool}] {gname}: {len(rows)} nuclei", file=sys.stderr, flush=True)
     return rows
 
 
@@ -213,7 +208,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Run kcore/ktruss/nucleus34 decompositions on a large dataset and "
-            "write one CSV per tool listing every maximal nucleus."
+            "write one CSV per tool listing every nucleus in the forest."
         )
     )
     parser.add_argument(
@@ -248,7 +243,7 @@ def main() -> int:
             "Largest nucleus (in vertices) for which |V|/|E|/density are computed, "
             "passed to the binary as NUCLEUS_DENSITY_UPPERBOUND. 'max' (default) "
             "computes every nucleus; a smaller integer is faster/lighter but drops "
-            "the larger maximal nuclei as dummies."
+            "the larger nuclei as dummies."
         ),
     )
 
