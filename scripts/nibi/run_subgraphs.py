@@ -1,0 +1,296 @@
+#!/usr/bin/env python3
+"""Report every nucleus of the nucleus forest for the large datasets.
+
+For a selected dataset, this runs the sequential `nd/nucleus` binary in
+hierarchy mode for three decompositions:
+
+    kcore     -> (1,2)-nucleus  (algorithm 12)
+    ktruss    -> (2,3)-nucleus  (algorithm 23)
+    nucleus34 -> (3,4)-nucleus  (algorithm 34)
+
+Each run writes a `<dataset>_<algo>_NUCLEI` file describing the full hierarchy
+forest. Every node in that forest is a nucleus (a maximal connected subgraph at
+its K threshold); its |V|/|E| aggregates its whole subtree. This runner emits
+one row per nucleus across all K levels, excluding only the artificial
+whole-graph root (the single node whose parent is -1).
+
+One CSV is written per dataset+tool, named `{dataset-name}_{tool}.csv`, with the
+columns:
+
+    dataset, level, nucleus_id, vertex_count, edge_count, density
+
+where `level` is the tool name and density = edge_count / C(vertex_count, 2).
+
+The nucleus binary only emits the *_NUCLEI / *_Hierarchy files when the
+NUCLEUS_REPORT_SUBGRAPH environment variable is set (this runner sets it); the
+default timing builds skip them.
+
+By default the binary only computes |V|/|E| for nuclei with at most 500 vertices
+and writes larger ones as dummy lines -- which drops exactly the large/outer
+nuclei. This runner sets NUCLEUS_DENSITY_UPPERBOUND=max so every nucleus is
+computed; use --max-subgraph-size to trade completeness for speed/memory.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(SCRIPT_DIR))
+
+# Reuse the dataset catalog and paths from the timing runner so the two stay in
+# sync (same indices, same dataset directory, same bin directory).
+from run import LARGE_DATASETS, DATASET_DIR, BIN_DIR  # noqa: E402
+
+NUCLEUS_BIN = BIN_DIR / "nd" / "nucleus"
+
+# Tool name -> nd algorithm code. Order is the order tools run / CSVs appear.
+TOOLS: dict[str, str] = {
+    "kcore": "12",
+    "ktruss": "23",
+    "nucleus34": "34",
+}
+
+CSV_COLUMNS = ["dataset", "level", "nucleus_id", "vertex_count", "edge_count", "density"]
+
+
+def density(vertex_count: int, edge_count: int) -> float:
+    """Edge density = edges / C(vertices, 2). Zero for fewer than two vertices."""
+    if vertex_count < 2:
+        return 0.0
+    return edge_count / (vertex_count * (vertex_count - 1) / 2)
+
+
+def parse_nuclei(path: Path) -> dict[int, dict[str, int]]:
+    """Parse a *_NUCLEI file into {id: {id, K, V, E, leaf, parent}}.
+
+    Each line is: `id K |V| |E| ed leaf parent<TAB>v1 v2 ... -1`.
+    """
+    nodes: dict[int, dict[str, int]] = {}
+    with path.open() as handle:
+        for line in handle:
+            head = line.split("\t", 1)[0].split()
+            if len(head) < 7:
+                continue
+            node = {
+                "id": int(head[0]),
+                "K": int(head[1]),
+                "V": int(head[2]),
+                "E": int(head[3]),
+                "leaf": int(head[5]),
+                "parent": int(head[6]),
+            }
+            nodes[node["id"]] = node
+    return nodes
+
+
+def all_nuclei(nodes: dict[int, dict[str, int]]) -> list[dict[str, int]]:
+    """Return every nucleus in the forest with a computed size.
+
+    Each node in the hierarchy is a nucleus (a maximal connected subgraph at its
+    K threshold); the rows span all K levels, not just the forest roots.
+
+    Excluded:
+      * the artificial whole-graph root -- the only node with parent == -1.
+      * dummy lines (V == -1) written when a nucleus exceeds the density cap;
+        such a node also gets parent == -1, so the parent != -1 filter drops it.
+    """
+    nuclei = [
+        node for node in nodes.values() if node["parent"] != -1 and node["V"] >= 0
+    ]
+    # Largest nucleus first, ties broken by id for determinism.
+    nuclei.sort(key=lambda node: (-node["V"], node["id"]))
+    return nuclei
+
+
+def run_tool(
+    tool: str,
+    algo: str,
+    dataset_path: Path,
+    output_dir: Path,
+    max_subgraph_size: str,
+) -> list[dict[str, object]]:
+    """Run one decomposition and return its maximal-nucleus rows."""
+    gname = dataset_path.name
+    nuclei_path = output_dir / f"{gname}_{algo}_NUCLEI"
+
+    env = os.environ.copy()
+    env["NUCLEUS_REPORT_SUBGRAPH"] = "1"
+    # Compute densities for nuclei of any size (default 'max'); otherwise the
+    # large/outer nuclei -- exactly the maximal ones -- are dropped as dummies.
+    env["NUCLEUS_DENSITY_UPPERBOUND"] = max_subgraph_size
+
+    command = [str(NUCLEUS_BIN), str(dataset_path), algo, os.devnull, "YES"]
+    print(f"[{tool}] {gname}: {' '.join(command)}", file=sys.stderr, flush=True)
+
+    completed = subprocess.run(
+        command,
+        cwd=output_dir,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    if completed.stderr:
+        print(completed.stderr, file=sys.stderr, end="")
+    if completed.returncode != 0:
+        raise SystemExit(
+            f"ERROR: {tool} failed on {gname} (exit {completed.returncode})"
+        )
+    if not nuclei_path.exists():
+        raise SystemExit(
+            f"ERROR: expected NUCLEI file not produced: {nuclei_path}"
+        )
+
+    nodes = parse_nuclei(nuclei_path)
+
+    dropped = sum(1 for node in nodes.values() if node["V"] < 0)
+    if dropped:
+        print(
+            f"[{tool}] {gname}: WARNING: {dropped} nuclei exceeded the size cap "
+            f"(NUCLEUS_DENSITY_UPPERBOUND={max_subgraph_size}) and were dropped; "
+            "some nuclei are missing. Re-run with --max-subgraph-size max.",
+            file=sys.stderr,
+            flush=True,
+        )
+
+    rows: list[dict[str, object]] = []
+    for node in all_nuclei(nodes):
+        rows.append(
+            {
+                "dataset": gname,
+                "level": tool,
+                "nucleus_id": node["id"],
+                "vertex_count": node["V"],
+                "edge_count": node["E"],
+                "density": f"{density(node['V'], node['E']):.6f}",
+            }
+        )
+    print(f"[{tool}] {gname}: {len(rows)} nuclei", file=sys.stderr, flush=True)
+    return rows
+
+
+def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def resolve_datasets(index_arg: str) -> list[Path]:
+    """Map the dataset selector to a list of dataset paths.
+
+    '0' / 'all' -> every large dataset; otherwise a 1-based index into
+    LARGE_DATASETS.
+    """
+    if index_arg in {"0", "all"}:
+        return [DATASET_DIR / name for name in LARGE_DATASETS]
+
+    try:
+        index = int(index_arg)
+    except ValueError:
+        raise SystemExit(f"Invalid dataset index: {index_arg!r}")
+    if index < 1 or index > len(LARGE_DATASETS):
+        raise SystemExit(
+            f"Invalid large dataset index: {index} "
+            f"(valid range: 1-{len(LARGE_DATASETS)} or 0/all)"
+        )
+    return [DATASET_DIR / LARGE_DATASETS[index - 1]]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run kcore/ktruss/nucleus34 decompositions on a large dataset and "
+            "write one CSV per tool listing every nucleus in the forest."
+        )
+    )
+    parser.add_argument(
+        "index",
+        nargs="?",
+        default="0",
+        help=(
+            "1-based large-dataset index (1.."
+            f"{len(LARGE_DATASETS)}), or '0'/'all' for every dataset. "
+            "Datasets: "
+            + ", ".join(f"{i + 1}={name}" for i, name in enumerate(LARGE_DATASETS))
+        ),
+    )
+    parser.add_argument(
+        "--tools",
+        default=",".join(TOOLS),
+        help=(
+            "Comma-separated subset of tools to run "
+            f"(choices: {', '.join(TOOLS)}; default: all)."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path.cwd(),
+        help="Directory for the CSV outputs and the raw *_NUCLEI files (default: CWD).",
+    )
+    parser.add_argument(
+        "--max-subgraph-size",
+        default="max",
+        help=(
+            "Largest nucleus (in vertices) for which |V|/|E|/density are computed, "
+            "passed to the binary as NUCLEUS_DENSITY_UPPERBOUND. 'max' (default) "
+            "computes every nucleus; a smaller integer is faster/lighter but drops "
+            "the larger nuclei as dummies."
+        ),
+    )
+
+    args = parser.parse_args()
+
+    selected_tools = [t.strip() for t in args.tools.split(",") if t.strip()]
+    unknown = [t for t in selected_tools if t not in TOOLS]
+    if unknown:
+        parser.error(
+            f"Unknown tool(s): {', '.join(unknown)}. Choices: {', '.join(TOOLS)}"
+        )
+
+    if not NUCLEUS_BIN.exists():
+        raise SystemExit(
+            f"ERROR: nucleus binary not found: {NUCLEUS_BIN}\n"
+            "Build it first with scripts/nibi/build_nucleus.sh"
+        )
+
+    datasets = resolve_datasets(args.index)
+    missing = [str(path) for path in datasets if not path.exists()]
+    if missing:
+        raise SystemExit("ERROR: dataset(s) not found:\n  " + "\n  ".join(missing))
+
+    output_dir = args.output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # One CSV per (dataset, tool), named "{dataset-name}_{tool}.csv".
+    for dataset_path in datasets:
+        stem = dataset_path.stem  # dataset name without extension, e.g. amazon-2008
+        for tool in selected_tools:
+            rows = run_tool(
+                tool,
+                TOOLS[tool],
+                dataset_path,
+                output_dir,
+                args.max_subgraph_size,
+            )
+            csv_path = output_dir / f"{stem}_{tool}.csv"
+            write_csv(csv_path, rows)
+            print(
+                f"Wrote {len(rows)} rows -> {csv_path}",
+                file=sys.stderr,
+                flush=True,
+            )
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -5,7 +5,9 @@ using namespace json;
 // Definition of the global JSON stream pointer (declared extern in json.h)
 std::ostringstream* g_jsonSS = nullptr;
 
-constexpr bool report_subgraph = false; // set to true to report the subgraph values, setting to false will skip the invokation of the reportSubgraph function and thus save time for large graphs
+// Max subgraph size for which densities are computed (declared extern in main.h).
+// Overridden at runtime by NUCLEUS_DENSITY_UPPERBOUND; see report_subgraph below.
+long g_upperbound = 500;
 
 inline std::string env(const char* e)
 {
@@ -13,6 +15,17 @@ inline std::string env(const char* e)
 	if (v)
 		return std::string(v);
 	return "";
+}
+
+// Report the per-nucleus subgraphs (the *_NUCLEI and *_Hierarchy files) only when
+// asked for via the NUCLEUS_REPORT_SUBGRAPH env var. This is expensive for large
+// graphs, so it stays off by default to preserve the timing-run behavior.
+// Enable with NUCLEUS_REPORT_SUBGRAPH=1 (or yes/true/on).
+inline bool report_subgraph_enabled()
+{
+	std::string v = env("NUCLEUS_REPORT_SUBGRAPH");
+	for (auto& c : v) c = std::tolower(static_cast<unsigned char>(c));
+	return v == "1" || v == "yes" || v == "true" || v == "on";
 }
 
 int main (int argc, char *argv[]) {
@@ -63,6 +76,26 @@ int main (int argc, char *argv[]) {
 			out_file = vfile + "_Hierarchy";
 		else
 			out_file = vfile + "_K";
+
+		const bool report_subgraph = report_subgraph_enabled();
+
+		// Allow raising the density-computation size cap so the maximal (outer)
+		// nuclei of large graphs are reported instead of being dropped as dummies.
+		// Accepts an integer, or max/all/inf/unlimited for "no limit".
+		{
+			std::string ub = env("NUCLEUS_DENSITY_UPPERBOUND");
+			for (auto& c : ub) c = std::tolower(static_cast<unsigned char>(c));
+			if (!ub.empty()) {
+				if (ub == "max" || ub == "all" || ub == "inf" || ub == "unlimited")
+					g_upperbound = INT_MAX;
+				else {
+					char* end = nullptr;
+					long v = std::strtol(ub.c_str(), &end, 10);
+					if (end != ub.c_str() && v > 0)
+						g_upperbound = v;
+				}
+			}
+		}
 
 		FILE* fp = nullptr;
 		if(report_subgraph) {

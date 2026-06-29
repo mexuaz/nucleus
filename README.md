@@ -63,6 +63,52 @@ sbatch ../../related/nucleus/scripts/nibi/run_nucleus.sh --program pnd:341,pnd:3
 
 The wrapper forwards arguments to `scripts/nibi/run.py`, which executes the selected configurations.
 
+## Reporting Nuclei (subgraph CSVs)
+
+To enumerate the dense subgraphs of a large dataset instead of timing it, use the
+CPU runner:
+
+```bash
+sbatch ./scripts/nibi/run_subgraphs.sh [OPTIONS] [INDEX]
+```
+
+It runs the sequential `nd/nucleus` binary in hierarchy mode for three
+decompositions on the selected large dataset:
+
+- `kcore` &rarr; `(1,2)`-nucleus (algorithm `12`)
+- `ktruss` &rarr; `(2,3)`-nucleus (algorithm `23`)
+- `nucleus34` &rarr; `(3,4)`-nucleus (algorithm `34`)
+
+`INDEX` is a 1-based index into the large-dataset list (`0`/`all` runs every
+dataset). For each dataset+tool it writes one CSV named `{dataset-name}_{tool}.csv`
+(e.g. `amazon-2008_kcore.csv`, `amazon-2008_ktruss.csv`, `amazon-2008_nucleus34.csv`)
+with one row per **nucleus** — every maximal connected subgraph in the forest
+across all K levels, excluding only the artificial whole-graph root:
+
+```
+dataset, level, nucleus_id, vertex_count, edge_count, density
+```
+
+where `level` is the tool name and `density = edge_count / C(vertex_count, 2)`.
+The raw `<dataset>_<algo>_NUCLEI` / `_Hierarchy` files are kept alongside the CSVs.
+
+Options:
+
+- `--tools LIST` Comma-separated subset of `kcore,ktruss,nucleus34` (default: all)
+- `--output-dir DIR` Where to write the CSVs and raw NUCLEI files (default: CWD)
+
+```bash
+# All three tools on dataset index 1 (amazon-2008), writing into RESULTS/sg1
+sbatch ./scripts/nibi/run_subgraphs.sh --output-dir RESULTS/sg1 1
+
+# Only k-truss on every large dataset
+sbatch ./scripts/nibi/run_subgraphs.sh --tools ktruss all
+```
+
+The subgraph files are only emitted when the `NUCLEUS_REPORT_SUBGRAPH`
+environment variable is set; `run_subgraphs.py` sets it automatically. The
+default timing builds skip this work for speed.
+
 ## References
 
 1. Finding the Hierarchy of Dense Subgraphs using Nucleus Decompositions<br>
